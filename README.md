@@ -100,7 +100,7 @@ npm run tauri build
 | `Ctrl+Shift+N` | New workspace |
 | `Ctrl+Tab` | Next workspace |
 | `Ctrl+Shift+Tab` | Previous workspace |
-| `Ctrl+Shift+W` | Close workspace |
+| `Ctrl+Shift+Q` | Close workspace |
 | `Ctrl+1` - `Ctrl+8` | Jump to workspace 1-8 |
 | `Ctrl+9` | Jump to last workspace |
 
@@ -108,10 +108,10 @@ npm run tauri build
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+D` | Split pane right |
-| `Ctrl+Alt+Shift+D` | Split pane down |
-| `Ctrl+Alt+W` | Close active pane |
-| `Ctrl+Alt+Arrow` | Focus pane in direction |
+| `Ctrl+Shift+D` | Split pane right |
+| `Ctrl+Shift+X` | Split pane down |
+| `Ctrl+Shift+W` | Close active pane |
+| `Ctrl+Shift+Arrow` | Focus pane in direction |
 | `Ctrl+Shift+Enter` | Toggle pane zoom |
 | `Ctrl+Shift+H` | Flash focused pane |
 

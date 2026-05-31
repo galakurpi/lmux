@@ -20,14 +20,14 @@ Shortcuts now use a centralized keybinding system with defaults + user overrides
 | `Ctrl+Shift+N` | New workspace |
 | `Ctrl+Tab` | Next workspace |
 | `Ctrl+Shift+Tab` | Previous workspace |
-| `Ctrl+Shift+W` | Close workspace |
+| `Ctrl+Shift+Q` | Close workspace |
 | `Ctrl+1..8` | Jump to workspace 1..8 |
 | `Ctrl+9` | Jump to last workspace |
 | `Ctrl+Shift+H` | Flash focused pane |
-| `Ctrl+Alt+Arrow` | Focus adjacent pane |
-| `Ctrl+Alt+D` | Split pane right |
-| `Ctrl+Alt+Shift+D` | Split pane down |
-| `Ctrl+Alt+W` | Close active pane |
+| `Ctrl+Shift+Arrow` | Focus adjacent pane |
+| `Ctrl+Shift+D` | Split pane right |
+| `Ctrl+Shift+X` | Split pane down |
+| `Ctrl+Shift+W` | Close active pane |
 | `Ctrl+Shift+L` | Open browser tab in active pane |
 | `Ctrl+Shift+Enter` | Toggle pane zoom |
 | `Ctrl+Shift+F` | Find in terminal |
