@@ -1,8 +1,9 @@
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { Pane, PaneTab } from "../../types";
 import { getAgent, getDefaultAgent } from "../../lib/agents";
 import { usePaneMetadataStore } from "../../stores/workspaceStore";
 import type { AgentStatus } from "../../stores/paneMetadataStoreCompat";
+import { LABEL_COLOR_OPTIONS } from "../../lib/colors";
 
 interface PaneTabBarProps {
   pane: Pane;
@@ -14,6 +15,8 @@ interface PaneTabBarProps {
   onAddTab?: (agentId?: string, type?: PaneTab["type"]) => void;
   onRemoveTab?: (tabId: string) => void;
   onSelectTab?: (tabId: string) => void;
+  onRenamePane?: (label: string) => void;
+  onPaneColorChange?: (color: string) => void;
 }
 
 const FolderIcon = () => (
@@ -103,7 +106,13 @@ export default memo(function PaneTabBar({
   onAddTab,
   onRemoveTab,
   onSelectTab,
+  onRenamePane,
+  onPaneColorChange,
 }: PaneTabBarProps) {
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [draftLabel, setDraftLabel] = useState(pane.label ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
   const allMetadata = usePaneMetadataStore((s) => s.metadata);
 
   // Derive active tab's agent status for the status bar
@@ -117,13 +126,51 @@ export default memo(function PaneTabBar({
   const showStatusBar = activeStatus !== "idle" && activeTab?.type !== "browser";
   const statusCfg = STATUS_CONFIG[activeStatus];
 
+  useEffect(() => {
+    if (!isRenaming) setDraftLabel(pane.label ?? "");
+  }, [isRenaming, pane.label]);
+
+  useEffect(() => {
+    if (isRenaming) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("blur", closeMenu);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("blur", closeMenu);
+    };
+  }, [contextMenu]);
+
+  const commitRename = () => {
+    onRenamePane?.(draftLabel);
+    setIsRenaming(false);
+  };
+
+  const cancelRename = () => {
+    setDraftLabel(pane.label ?? "");
+    setIsRenaming(false);
+  };
+
   return (
     <div
       className="pane-tabbar"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+      }}
       style={{
         display: "flex",
         flexDirection: "column",
-        background: "#1a1a1a",
+        background: "var(--cmux-surface)",
         borderBottom: hasNotification
           ? "1px solid rgba(255, 59, 48, 0.5)"
           : "1px solid var(--cmux-border)",
@@ -178,6 +225,77 @@ export default memo(function PaneTabBar({
 
       {/* Tab pills row */}
       <div style={{ height: 36, display: "flex", alignItems: "center" }}>
+      {(pane.label || pane.color || isRenaming) && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            height: 36,
+            padding: "0 8px",
+            borderRight: "1px solid var(--cmux-border)",
+            flexShrink: 0,
+            maxWidth: 170,
+          }}
+        >
+          {pane.color && (
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: pane.color,
+                flexShrink: 0,
+              }}
+            />
+          )}
+          {isRenaming ? (
+            <input
+              ref={inputRef}
+              value={draftLabel}
+              onChange={(e) => setDraftLabel(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitRename();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelRename();
+                }
+              }}
+              style={{
+                width: 118,
+                minWidth: 80,
+                background: "var(--cmux-bg)",
+                border: "1px solid var(--cmux-accent)",
+                borderRadius: 4,
+                color: "var(--cmux-text)",
+                font: "12px 'JetBrains Mono', 'Geist Mono', monospace",
+                lineHeight: 1.2,
+                padding: "2px 5px",
+                outline: "none",
+              }}
+            />
+          ) : pane.label ? (
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                color: "var(--cmux-text)",
+                font: "12px 'JetBrains Mono', 'Geist Mono', monospace",
+                fontWeight: 600,
+              }}
+            >
+              {pane.label}
+            </span>
+          ) : null}
+        </div>
+      )}
       {/* Tab pills — overflow:hidden here to clip tab text, not the dropdown */}
       <div style={{ display: "flex", alignItems: "center", flex: 1, overflow: "hidden", minWidth: 0 }}>
         {pane.tabs.map((tab) => {
@@ -295,6 +413,71 @@ export default memo(function PaneTabBar({
         )}
       </div>
       </div>{/* end tab pills row */}
+
+      {contextMenu && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 300,
+            minWidth: 154,
+            padding: 6,
+            border: "1px solid var(--cmux-border)",
+            borderRadius: 6,
+            background: "var(--cmux-bg)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.42)",
+            color: "var(--cmux-text)",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          <button
+            onClick={() => {
+              setContextMenu(null);
+              setDraftLabel(pane.label ?? "");
+              setIsRenaming(true);
+            }}
+            style={{
+              width: "100%",
+              border: "none",
+              background: "transparent",
+              color: "var(--cmux-text)",
+              cursor: "pointer",
+              textAlign: "left",
+              padding: "6px 8px",
+              borderRadius: 4,
+              fontSize: 12,
+            }}
+          >
+            Rename
+          </button>
+          <div style={{ padding: "6px 8px 4px", color: "var(--cmux-text-tertiary)", fontSize: 11 }}>
+            Color
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: 5, padding: "0 8px 6px" }}>
+            {LABEL_COLOR_OPTIONS.map((option) => (
+              <button
+                key={option}
+                title={option}
+                onClick={() => {
+                  onPaneColorChange?.(option);
+                  setContextMenu(null);
+                }}
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  border: option === pane.color ? "2px solid #ffffff" : "1px solid var(--cmux-border)",
+                  background: option,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 });

@@ -38,6 +38,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
   const activeId = useWorkspaceListStore((s) => s.activeWorkspaceId);
   const setActive = useWorkspaceListStore((s) => s.setActiveWorkspace);
   const renameWorkspace = useWorkspaceListStore((s) => s.renameWorkspace);
+  const setWorkspaceColor = useWorkspaceListStore((s) => s.setWorkspaceColor);
   const paneMetadata = usePaneMetadataStore((s) => s.metadata);
 
   return (
@@ -48,7 +49,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        background: uiVariant === "cmux" ? "#151515" : "var(--cmux-sidebar)",
+        background: "var(--cmux-sidebar)",
         borderRight: "1px solid var(--cmux-border)",
         flexShrink: 0,
         overflowY: "auto",
@@ -91,6 +92,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
               onClick={() => setActive(ws.id)}
               onClose={() => onCloseWorkspace(ws.id)}
               onRename={(name) => renameWorkspace(ws.id, name)}
+              onColorChange={(color) => setWorkspaceColor(ws.id, color)}
             />
           );
         })}
@@ -148,7 +150,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
               width: "min(520px, calc(100vw - 48px))",
               maxHeight: "min(620px, calc(100vh - 48px))",
               overflow: "auto",
-              background: "#000000",
+              background: "var(--cmux-bg)",
               border: "1px solid var(--cmux-accent)",
               borderRadius: 8,
               boxShadow: "0 0 24px rgba(0, 255, 65, 0.22)",
@@ -168,7 +170,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
                   height: 28,
                   borderRadius: 4,
                   border: "1px solid var(--cmux-border)",
-                  background: "#000000",
+                  background: "var(--cmux-bg)",
                   color: "var(--cmux-text-secondary)",
                   cursor: "pointer",
                   fontSize: 16,

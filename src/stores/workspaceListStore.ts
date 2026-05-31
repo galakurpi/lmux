@@ -28,6 +28,7 @@ interface WorkspaceListState {
   removeWorkspace: (id: string) => void;
   setActiveWorkspace: (id: string) => void;
   renameWorkspace: (id: string, name: string) => void;
+  setWorkspaceColor: (id: string, color: string) => void;
   setWorkspaceStatus: (id: string, status: Workspace["status"]) => void;
   
   // Internal update for layout store to modify panes
@@ -101,6 +102,14 @@ export const useWorkspaceListStore = create<WorkspaceListState>((set, get) => ({
     set((state) => ({
       workspaces: state.workspaces.map((w) =>
         w.id === id ? { ...w, name } : w
+      ),
+    }));
+  },
+
+  setWorkspaceColor: (id, color) => {
+    set((state) => ({
+      workspaces: state.workspaces.map((w) =>
+        w.id === id ? { ...w, color } : w
       ),
     }));
   },

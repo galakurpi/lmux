@@ -97,7 +97,7 @@ export default memo(function BrowserPane({ sessionId }: BrowserPaneProps) {
           alignItems: "center",
           gap: 4,
           padding: "4px 8px",
-          background: "#1a1a1a",
+          background: "var(--cmux-surface)",
           borderBottom: "1px solid var(--cmux-border)",
           flexShrink: 0,
         }}

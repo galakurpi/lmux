@@ -141,6 +141,8 @@ function buildPanes(
 interface WorkspaceLayoutState {
   // Pane operations
   removePaneFromWorkspace: (workspaceId: string, paneId: string) => void;
+  renamePane: (workspaceId: string, paneId: string, label: string) => void;
+  setPaneColor: (workspaceId: string, paneId: string, color: string) => void;
   addPaneToWorkspace: (
     workspaceId: string,
     afterPaneId: string,
@@ -189,6 +191,29 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
     useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes, newSplitRows, newSplitLayout);
   },
 
+  renamePane: (workspaceId, paneId, label) => {
+    const workspace = useWorkspaceListStore.getState().getWorkspace(workspaceId);
+    if (!workspace) return;
+
+    const trimmedLabel = label.trim();
+    const newPanes = workspace.panes.map((p) =>
+      p.id === paneId ? { ...p, label: trimmedLabel || undefined } : p
+    );
+
+    useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes);
+  },
+
+  setPaneColor: (workspaceId, paneId, color) => {
+    const workspace = useWorkspaceListStore.getState().getWorkspace(workspaceId);
+    if (!workspace) return;
+
+    const newPanes = workspace.panes.map((p) =>
+      p.id === paneId ? { ...p, color } : p
+    );
+
+    useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes);
+  },
+
   addPaneToWorkspace: (workspaceId, afterPaneId, direction, agentId) => {
     const workspace = useWorkspaceListStore.getState().getWorkspace(workspaceId);
     if (!workspace) return;
@@ -207,6 +232,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
     const sourcePane = workspace.panes.find((p) => p.id === afterPaneId);
     if (sourcePane) {
       usePaneFontStore.getState().copyFontSize(sourcePane.sessionId, newPane.sessionId);
+      newPane.color = sourcePane.color;
     }
     const newPanes = [...workspace.panes, newPane];
 

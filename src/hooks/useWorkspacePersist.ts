@@ -25,9 +25,11 @@ function toConfig(ws: Workspace, cwds: Record<string, string>): WorkspaceConfig 
     panes: ws.panes.map((p) => ({
       agent_id: p.agentId,
       label: p.label ?? null,
+      color: p.color ?? null,
       cwd: cwds[p.sessionId] ?? metaState[p.sessionId]?.cwd ?? p.cwd ?? null,
     })),
     created_at: ws.createdAt,
+    color: ws.color ?? null,
   };
 }
 
@@ -73,6 +75,12 @@ export function useWorkspacePersist() {
                 
                 // Apply persisted CWDs to panes
                 cfg.panes.forEach((p, i) => {
+                  if (p.label && panes[i]) {
+                    panes[i].label = p.label;
+                  }
+                  if (p.color && panes[i]) {
+                    panes[i].color = p.color;
+                  }
                   if (p.cwd && panes[i]) {
                     panes[i].cwd = p.cwd;
                   }
@@ -84,6 +92,7 @@ export function useWorkspacePersist() {
                   panes,
                   splitRows,
                   splitLayout,
+                  cfg.color ?? undefined,
                 );
               }
               const bootstrapWs = listStore.workspaces[0];

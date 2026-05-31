@@ -108,6 +108,7 @@ export async function getWindowCount(): Promise<number> {
 export interface PaneConfig {
   agent_id: string;
   label: string | null;
+  color?: string | null;
   cwd?: string | null;
 }
 
@@ -117,6 +118,7 @@ export interface WorkspaceConfig {
   grid_template_id: string;
   panes: PaneConfig[];
   created_at: number;
+  color?: string | null;
 }
 
 export interface AppSettings {

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
+import { LABEL_COLOR_OPTIONS } from "../../lib/colors";
 
 interface StatusCounts {
   working: number;
@@ -20,6 +21,7 @@ interface TabItemProps {
   onClick: () => void;
   onClose: () => void;
   onRename: (name: string) => void;
+  onColorChange: (color: string) => void;
 }
 
 function StatusPip({ count, color, pulse }: { count: number; color: string; pulse?: boolean }) {
@@ -41,9 +43,10 @@ function StatusPip({ count, color, pulse }: { count: number; color: string; puls
   );
 }
 
-export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, notificationCount, lastLogLine, statusCounts, active, onClick, onClose, onRename }: TabItemProps) {
+export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, notificationCount, lastLogLine, statusCounts, active, onClick, onClose, onRename, onColorChange }: TabItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(name);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasAgents = statusCounts && (statusCounts.working + statusCounts.waiting + statusCounts.done) > 0;
 
@@ -57,6 +60,18 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
       inputRef.current?.select();
     }
   }, [isRenaming]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("blur", closeMenu);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("blur", closeMenu);
+    };
+  }, [contextMenu]);
 
   const commitRename = () => {
     const trimmedName = draftName.trim();
@@ -77,8 +92,7 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setDraftName(name);
-        setIsRenaming(true);
+        setContextMenu({ x: e.clientX, y: e.clientY });
       }}
       className={uiVariant === "cmux" ? "cmux-workspace-item" : undefined}
       style={{
@@ -87,14 +101,14 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
         justifyContent: "space-between",
         padding: "8px 12px",
         cursor: "pointer",
-        background: active ? "#000000" : "transparent",
+        background: active ? "var(--cmux-bg)" : "transparent",
         color: active ? "var(--cmux-text)" : "var(--cmux-text-secondary)",
         fontSize: "13px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         userSelect: "none",
         transition: "background 0.1s, color 0.1s, border-color 0.1s",
         border: active
-          ? "1px solid var(--cmux-accent)"
+          ? `1px solid ${color ?? "var(--cmux-accent)"}`
           : "1px solid transparent",
         borderRadius: uiVariant === "cmux" ? "8px" : "6px",
         margin: "0 8px",
@@ -102,9 +116,9 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.background = uiVariant === "cmux" ? "#000000" : "rgba(255, 255, 255, 0.05)";
+          e.currentTarget.style.background = uiVariant === "cmux" ? "var(--cmux-bg)" : "rgba(255, 255, 255, 0.05)";
           e.currentTarget.style.color = "var(--cmux-text)";
-          if (uiVariant === "cmux") e.currentTarget.style.borderColor = "rgba(0, 255, 65, 0.45)";
+          if (uiVariant === "cmux") e.currentTarget.style.borderColor = color ?? "rgba(0, 255, 65, 0.45)";
         }
       }}
       onMouseLeave={(e) => {
@@ -166,7 +180,7 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
                 minWidth: 0,
                 width: "100%",
                 flex: 1,
-                background: "#000000",
+                background: "var(--cmux-bg)",
                 border: "1px solid var(--cmux-accent)",
                 borderRadius: 4,
                 color: "var(--cmux-text)",
@@ -263,6 +277,71 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
       >
         ×
       </button>
+
+      {contextMenu && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 300,
+            minWidth: 154,
+            padding: 6,
+            border: "1px solid var(--cmux-border)",
+            borderRadius: 6,
+            background: "var(--cmux-bg)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.42)",
+            color: "var(--cmux-text)",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          <button
+            onClick={() => {
+              setContextMenu(null);
+              setDraftName(name);
+              setIsRenaming(true);
+            }}
+            style={{
+              width: "100%",
+              border: "none",
+              background: "transparent",
+              color: "var(--cmux-text)",
+              cursor: "pointer",
+              textAlign: "left",
+              padding: "6px 8px",
+              borderRadius: 4,
+              fontSize: 12,
+            }}
+          >
+            Rename
+          </button>
+          <div style={{ padding: "6px 8px 4px", color: "var(--cmux-text-tertiary)", fontSize: 11 }}>
+            Color
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(9, 1fr)", gap: 5, padding: "0 8px 6px" }}>
+            {LABEL_COLOR_OPTIONS.map((option) => (
+              <button
+                key={option}
+                title={option}
+                onClick={() => {
+                  onColorChange(option);
+                  setContextMenu(null);
+                }}
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  border: option === color ? "2px solid #ffffff" : "1px solid var(--cmux-border)",
+                  background: option,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 });

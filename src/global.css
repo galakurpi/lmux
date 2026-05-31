@@ -1,13 +1,13 @@
 :root {
-  --cmux-bg: #000000;
-  --cmux-sidebar: #000000;
+  --cmux-bg: #101010;
+  --cmux-sidebar: #141414;
   --cmux-accent: #00ff41;
   --cmux-border: rgba(0, 255, 65, 0.24);
   --cmux-text: #d7ffe1;
   --cmux-text-secondary: #00c853;
   --cmux-text-tertiary: #007a24;
-  --cmux-title-bg: #000000;
-  --cmux-surface: #000000;
+  --cmux-title-bg: #101010;
+  --cmux-surface: #141414;
   --cmux-hover: rgba(0, 255, 65, 0.1);
 
   --status-working: #00ff41;
@@ -17,10 +17,10 @@
 }
 
 .ui-cmux {
-  --cmux-bg: #000000;
-  --cmux-sidebar: #000000;
-  --cmux-title-bg: #000000;
-  --cmux-surface: #000000;
+  --cmux-bg: #101010;
+  --cmux-sidebar: #141414;
+  --cmux-title-bg: #101010;
+  --cmux-surface: #141414;
   --cmux-accent: #00ff41;
   --cmux-border: rgba(0, 255, 65, 0.24);
   --cmux-text: #d7ffe1;

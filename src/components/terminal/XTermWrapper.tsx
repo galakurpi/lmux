@@ -53,11 +53,11 @@ function buildThemeFromConfig(cfg: { background: string; foreground: string; ans
 }
 
 const DEFAULT_THEME: ITheme = {
-  background: "#000000",
+  background: "#101010",
   foreground: "#d7ffe1",
   cursor: "#00ff41",
   selectionBackground: "#063b16",
-  black: "#000000",
+  black: "#101010",
   red: "#ff3158",
   green: "#00c853",
   yellow: "#d7ff00",
@@ -491,7 +491,7 @@ export default memo(function XTermWrapper({
           top: 8,
           right: 16,
           zIndex: 50,
-          background: "var(--cmux-bg, #1a1a1a)",
+          background: "var(--cmux-bg, #101010)",
           border: "1px solid var(--cmux-border, #333)",
           borderRadius: 6,
           padding: "4px 8px",

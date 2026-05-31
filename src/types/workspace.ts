@@ -36,6 +36,7 @@ export interface Pane {
   activeTabId: string;
   /** Custom label override */
   label?: string;
+  color?: string;
   cwd?: string;
   gitBranch?: string;
 }

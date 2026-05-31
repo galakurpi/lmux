@@ -33,7 +33,7 @@ export default function GridPreview({ template, selected, onClick }: GridPreview
         alignItems: "center",
         gap: 6,
         padding: 8,
-        background: selected ? "rgba(0, 255, 65, 0.12)" : "#000000",
+        background: selected ? "rgba(0, 255, 65, 0.12)" : "var(--cmux-bg)",
         border: selected ? "1px solid #00ff41" : "1px solid rgba(0, 255, 65, 0.18)",
         borderRadius: 6,
         cursor: "pointer",

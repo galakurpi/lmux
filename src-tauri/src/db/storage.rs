@@ -7,6 +7,7 @@ use std::path::PathBuf;
 pub struct PaneConfig {
     pub agent_id: String,
     pub label: Option<String>,
+    pub color: Option<String>,
     pub cwd: Option<String>,
 }
 
@@ -17,6 +18,7 @@ pub struct WorkspaceConfig {
     pub grid_template_id: String,
     pub panes: Vec<PaneConfig>,
     pub created_at: u64,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

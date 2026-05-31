@@ -34,6 +34,8 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
   const clearNotification = usePaneMetadataStore((s) => s.clearNotification);
   const addTabToPane = useWorkspaceLayoutStore((s) => s.addTabToPane);
   const removeTabFromPane = useWorkspaceLayoutStore((s) => s.removeTabFromPane);
+  const renamePane = useWorkspaceLayoutStore((s) => s.renamePane);
+  const setPaneColor = useWorkspaceLayoutStore((s) => s.setPaneColor);
   const setActivePaneTab = useWorkspaceLayoutStore((s) => s.setActivePaneTab);
 
   const isActive = activePaneId === pane.sessionId;
@@ -54,7 +56,11 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
     idle:    { active: "rgba(10, 132, 255, 0.5)",  inactive: "transparent" },
   };
   const statusKey = (agentStatus in STATUS_BORDERS ? agentStatus : "idle") as keyof typeof STATUS_BORDERS;
-  const borderColor = isZoomed ? "transparent" : (isActive ? STATUS_BORDERS[statusKey].active : STATUS_BORDERS[statusKey].inactive);
+  const borderColor = isZoomed
+    ? "transparent"
+    : pane.color
+      ? pane.color
+      : (isActive ? STATUS_BORDERS[statusKey].active : STATUS_BORDERS[statusKey].inactive);
 
   const handleFocus = useCallback(() => {
     setActivePaneId(pane.sessionId);
@@ -76,6 +82,14 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
   const handleSelectTab = useCallback((tabId: string) => {
     setActivePaneTab(workspaceId, pane.id, tabId);
   }, [workspaceId, pane.id, setActivePaneTab]);
+
+  const handleRenamePane = useCallback((label: string) => {
+    renamePane(workspaceId, pane.id, label);
+  }, [workspaceId, pane.id, renamePane]);
+
+  const handlePaneColorChange = useCallback((color: string) => {
+    setPaneColor(workspaceId, pane.id, color);
+  }, [workspaceId, pane.id, setPaneColor]);
 
   const handleZoomToggle = useCallback(() => {
     const currentZoomed = useUiStore.getState().zoomedPaneId;
@@ -121,7 +135,7 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
           right: 0,
           bottom: 0,
           zIndex: 100,
-          background: "var(--cmux-bg, #000000)",
+          background: "var(--cmux-bg, #101010)",
         } : {
           position: "relative",
           width: "100%",
@@ -159,6 +173,8 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
         onAddTab={handleAddTab}
         onRemoveTab={handleRemoveTab}
         onSelectTab={handleSelectTab}
+        onRenamePane={handleRenamePane}
+        onPaneColorChange={handlePaneColorChange}
       />
 
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
