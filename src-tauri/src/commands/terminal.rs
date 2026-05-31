@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 use sysinfo::System;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -17,6 +18,15 @@ pub struct TerminalConfigPayload {
 
 fn rgb_hex(c: [u8; 3]) -> String {
     format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2])
+}
+
+fn default_session_cwd() -> Option<String> {
+    let dir = std::env::var("LMUX_DEFAULT_CWD").ok()?;
+    if Path::new(&dir).is_dir() {
+        Some(dir)
+    } else {
+        None
+    }
 }
 
 #[tauri::command]
@@ -45,6 +55,7 @@ pub fn create_session(
     on_data: Channel<Vec<u8>>,
     cwd: Option<String>,
 ) -> Result<(), String> {
+    let cwd = default_session_cwd().or(cwd);
     state.session_manager.create(
         session_id, &command, &args, cols, rows, on_data, app_handle, cwd,
     )
