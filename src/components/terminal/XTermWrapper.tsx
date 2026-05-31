@@ -225,10 +225,9 @@ export default memo(function XTermWrapper({
           return false;
         }
         
-        // Shift+Enter → send as \x1b[13;2u (kitty protocol) which most apps understand,
-        // but many shells/apps just want \r — send the CSI form so it round-trips correctly.
-        if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.altKey) {
-          writeToSession(sessionId, "\x1b[13;2u").catch(console.error);
+        // Codex-style TUIs treat Linefeed as "insert newline" while Enter submits.
+        if ((e.key === "Enter" || e.key === "Linefeed") && e.shiftKey && !e.ctrlKey && !e.altKey) {
+          writeToSession(sessionId, "\n").catch(console.error);
           return false; // prevent xterm's default handling
         }
         
