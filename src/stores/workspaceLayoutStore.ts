@@ -4,6 +4,7 @@ import type { Pane, PaneTab, GridTemplateId, SplitLayoutNode } from "../types";
 import { getGridTemplate } from "../lib/gridTemplates";
 import { getDefaultAgent } from "../lib/agents";
 import { makeSessionId } from "../lib/constants";
+import { usePaneFontStore } from "./paneFontStore";
 import { useWorkspaceListStore } from "./workspaceListStore";
 
 /**
@@ -170,6 +171,8 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
     if (!workspace) return;
     if (workspace.panes.length <= 1) return; // never remove last pane
 
+    const removedPane = workspace.panes.find((p) => p.id === paneId);
+    removedPane?.tabs.forEach((tab) => usePaneFontStore.getState().removeFontSize(tab.sessionId));
     const newPanes = workspace.panes.filter((p) => p.id !== paneId);
     
     // Update splitRows if present
@@ -201,6 +204,10 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
       tabs: [tab],
       activeTabId: tab.id,
     };
+    const sourcePane = workspace.panes.find((p) => p.id === afterPaneId);
+    if (sourcePane) {
+      usePaneFontStore.getState().copyFontSize(sourcePane.sessionId, newPane.sessionId);
+    }
     const newPanes = [...workspace.panes, newPane];
 
     // Initialize splitRows if not present
@@ -244,6 +251,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
       if (p.id !== paneId) return p;
       const agId = agentId ?? p.agentId;
       const tab = makeTab(workspaceId, paneId, agId, type);
+      usePaneFontStore.getState().copyFontSize(p.sessionId, tab.sessionId);
       return {
         ...p,
         tabs: [...p.tabs, tab],
@@ -262,6 +270,10 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
 
     const newPanes = workspace.panes.flatMap((p) => {
       if (p.id !== paneId) return [p];
+      const removedTab = p.tabs.find((t) => t.id === tabId);
+      if (removedTab) {
+        usePaneFontStore.getState().removeFontSize(removedTab.sessionId);
+      }
       const remaining = p.tabs.filter((t) => t.id !== tabId);
       if (remaining.length === 0) return []; // remove pane if no tabs left
       const newActiveId = p.activeTabId === tabId ? remaining[remaining.length - 1].id : p.activeTabId;

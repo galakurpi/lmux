@@ -15,6 +15,7 @@ import {
 import { usePaneMetadataStore, useUiStore } from "../../stores/workspaceStore";
 import type { AgentStatus } from "../../stores/paneMetadataStoreCompat";
 import { useKeybindingStore } from "../../stores/keybindingStore";
+import { usePaneFontStore } from "../../stores/paneFontStore";
 import { useThemeStore } from "../../stores/themeStore";
 import type { ITheme } from "@xterm/xterm";
 
@@ -150,8 +151,9 @@ export default memo(function XTermWrapper({
     const next = Math.max(8, Math.min(40, current + delta));
     paneFontSizeRef.current = next;
     term.options.fontSize = next;
+    usePaneFontStore.getState().setFontSize(sessionId, next);
     setTimeout(() => fitAddonRef.current?.fit(), 10);
-  }, [storeFontSize]);
+  }, [sessionId, storeFontSize]);
 
   useEffect(() => {
     const onPaneZoom = (event: Event) => {
@@ -165,12 +167,13 @@ export default memo(function XTermWrapper({
   // Dynamically update terminal theme and font size
   useEffect(() => {
     if (termRef.current) {
+      const nextFontSize = fontSize ?? storeFontSize;
       termRef.current.options.theme = storeTheme.terminal;
-      termRef.current.options.fontSize = storeFontSize;
-      paneFontSizeRef.current = storeFontSize;
+      termRef.current.options.fontSize = nextFontSize;
+      paneFontSizeRef.current = nextFontSize;
       setTimeout(() => fitAddonRef.current?.fit(), 10);
     }
-  }, [storeTheme, storeFontSize]);
+  }, [fontSize, storeTheme, storeFontSize]);
 
   useEffect(() => {
     const mountStart = performance.now();
@@ -194,7 +197,7 @@ export default memo(function XTermWrapper({
       // Use cached config if available (instant), otherwise use defaults
       const cfg = cachedConfig;
       const initTheme = theme ?? cfg?.theme ?? DEFAULT_THEME;
-      const initFontSize = fontSize ?? cfg?.fontSize ?? 14;
+      const initFontSize = fontSize ?? cfg?.fontSize ?? storeFontSize;
       const initFontFamily = fontFamily ?? cfg?.fontFamily ?? "'JetBrainsMono Nerd Font Mono', 'JetBrains Mono', 'Geist Mono', 'SF Mono', monospace";
       paneFontSizeRef.current = initFontSize;
 

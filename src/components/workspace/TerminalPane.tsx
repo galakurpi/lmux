@@ -8,7 +8,8 @@ import BrowserPane from "../browser/BrowserPane";
 import {
   useWorkspaceLayoutStore,
   useUiStore,
-  usePaneMetadataStore
+  usePaneMetadataStore,
+  usePaneFontStore,
 } from "../../stores/workspaceStore";
 import { useWorkspaceListStore } from "../../stores/workspaceListStore";
 import { getAgent, getDefaultAgent } from "../../lib/agents";
@@ -43,6 +44,7 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
   const activeTabSessionId = pane.tabs.find((t) => t.id === pane.activeTabId)?.sessionId;
   const activeTabMeta = usePaneMetadataStore((s) => activeTabSessionId ? s.metadata[activeTabSessionId] : undefined);
   const agentStatus = activeTabMeta?.agentStatus ?? "idle";
+  const paneFontSize = usePaneFontStore((s) => s.fontSizes[pane.sessionId]);
 
   // Map status to rgba border colors (inactive panes get 40% opacity)
   const STATUS_BORDERS = {
@@ -187,6 +189,7 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
                     onZoomToggle={handleZoomToggle}
                     onUrlClick={handleUrlClick}
                     cwd={paneCwd}
+                    fontSize={paneFontSize}
                   />
                 )}
               </ErrorBoundary>
