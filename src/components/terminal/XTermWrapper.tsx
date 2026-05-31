@@ -119,6 +119,7 @@ export default memo(function XTermWrapper({
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const paneFontSizeRef = useRef<number | null>(null);
   
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,6 +133,7 @@ export default memo(function XTermWrapper({
     if (termRef.current) {
       termRef.current.options.theme = storeTheme.terminal;
       termRef.current.options.fontSize = storeFontSize;
+      paneFontSizeRef.current = storeFontSize;
       setTimeout(() => fitAddonRef.current?.fit(), 10);
     }
   }, [storeTheme, storeFontSize]);
@@ -160,6 +162,7 @@ export default memo(function XTermWrapper({
       const initTheme = theme ?? cfg?.theme ?? DEFAULT_THEME;
       const initFontSize = fontSize ?? cfg?.fontSize ?? 14;
       const initFontFamily = fontFamily ?? cfg?.fontFamily ?? "'JetBrainsMono Nerd Font Mono', 'JetBrains Mono', 'Geist Mono', 'SF Mono', monospace";
+      paneFontSizeRef.current = initFontSize;
 
       term = new Terminal({
         cursorBlink: true,
@@ -199,6 +202,23 @@ export default memo(function XTermWrapper({
       // Forward modifier+key combos that xterm intercepts before the PTY sees them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (e.type !== "keydown") return true;
+
+        const isPaneZoomIn =
+          e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
+          (e.key === "+" || e.key === "=" || e.code === "Equal" || e.code === "NumpadAdd");
+        const isPaneZoomOut =
+          e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
+          (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract");
+
+        if (isPaneZoomIn || isPaneZoomOut) {
+          if (!term) return false;
+          const current = paneFontSizeRef.current ?? term.options.fontSize ?? storeFontSize;
+          const next = Math.max(8, Math.min(40, current + (isPaneZoomIn ? 1 : -1)));
+          paneFontSizeRef.current = next;
+          term.options.fontSize = next;
+          setTimeout(() => fitAddonRef.current?.fit(), 10);
+          return false;
+        }
 
         const keybindingStore = useKeybindingStore.getState();
         

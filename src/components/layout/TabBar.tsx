@@ -15,6 +15,8 @@ const HELP_ROWS = [
   ["New workspace", "Ctrl+Shift+N"],
   ["Switch workspaces", "Ctrl+1..9"],
   ["Close pane", "Ctrl+Shift+W"],
+  ["Zoom focused pane in", "Ctrl+Shift++"],
+  ["Zoom focused pane out", "Ctrl+Shift+-"],
   ["Find in terminal", "Ctrl+Shift+F"],
   ["Zoom pane", "Ctrl+Shift+Enter"],
   ["Insert newline", "Shift+Enter"],
