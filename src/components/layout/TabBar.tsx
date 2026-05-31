@@ -21,6 +21,16 @@ const HELP_ROWS = [
   ["Open/focus Lmux", "lmux"],
 ];
 
+const TERMS = [
+  ["Workspace", "A saved working area or project. It contains panes."],
+  ["Pane", "A visible split region inside a workspace."],
+  ["Tab", "A tab inside a pane, usually terminal or browser."],
+  ["Terminal", "A tab running a shell or agent command."],
+  ["Browser", "A browser tab inside a pane."],
+  ["Agent", "A configured command preset, like Shell, Codex, Claude, Gemini, or Aider."],
+  ["Session", "The running process behind a terminal tab. Mostly internal/debug wording."],
+];
+
 export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabBarProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   const workspaces = useWorkspaceListStore((s) => s.workspaces);
@@ -195,6 +205,34 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
                   </code>
                 </div>
               ))}
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--cmux-accent)", marginBottom: 10 }}>
+                Names
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {TERMS.map(([term, description]) => (
+                  <div
+                    key={term}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "104px 1fr",
+                      gap: 12,
+                      borderBottom: "1px solid rgba(0, 255, 65, 0.16)",
+                      paddingBottom: 8,
+                      fontSize: 12,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span style={{ color: "var(--cmux-accent)", fontWeight: 700 }}>{term}</span>
+                    <span style={{ color: "var(--cmux-text-secondary)" }}>{description}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 10, color: "var(--cmux-text)", fontSize: 12 }}>
+                Workspace {"->"} Pane {"->"} Tab {"->"} Terminal session or Browser view
+              </div>
             </div>
 
             <div style={{ marginTop: 14, color: "var(--cmux-text-secondary)", fontSize: 11, lineHeight: 1.5 }}>
