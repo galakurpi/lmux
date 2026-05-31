@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useWorkspaceListStore, usePaneMetadataStore } from "../../stores/workspaceStore";
-import { SIDEBAR_WIDTH } from "../../lib/constants";
 import TabItem from "./TabItem";
 
 interface TabBarProps {
@@ -44,7 +43,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
     <div
       data-tauri-drag-region
       style={{
-        width: SIDEBAR_WIDTH,
+        width: "100%",
         height: "100%",
         display: "flex",
         flexDirection: "column",

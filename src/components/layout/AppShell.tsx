@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Allotment } from "allotment";
+import "allotment/dist/style.css";
 import type { GridTemplateId } from "../../types";
 import { 
   useWorkspaceListStore, 
@@ -102,6 +104,7 @@ interface AppShellProps {
 
 export default function AppShell({ uiVariant = "default" }: AppShellProps) {
   const [showSetup, setShowSetup] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH);
   const workspaces = useWorkspaceListStore((s) => s.workspaces);
   const activeId = useWorkspaceListStore((s) => s.activeWorkspaceId);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -401,6 +404,19 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
     setActivePaneId,
   ]);
 
+  const mainContent = (
+    <div style={{ width: "100%", height: "100%", overflow: "hidden", minWidth: 0, position: "relative" }}>
+      <WorkspaceView />
+      <CommandPalette />
+      {isKeybindingsOpen && <KeybindingsModal onClose={() => setIsKeybindingsOpen(false)} />}
+      {showSetup && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 50, background: "var(--cmux-bg)" }}>
+          <WorkspaceSetup onLaunch={handleLaunch} onCancel={handleCancelSetup} />
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       className={uiVariant === "cmux" ? "ui-cmux" : undefined}
@@ -415,33 +431,29 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
     >
       <SocketListener />
       <TitleBar uiVariant={uiVariant} onNewWorkspace={handleNewWorkspace} />
-      <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden", minHeight: 0 }}>
-        {/* Sidebar — kept mounted so terminals don't remount; width animates to 0 */}
-        <div
-          style={{
-            width: sidebarCollapsed ? 0 : SIDEBAR_WIDTH,
-            overflow: "hidden",
-            flexShrink: 0,
-            transition: "width 0.2s ease",
+      <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
+        <Allotment
+          separator
+          onChange={(sizes) => {
+            if (sizes[0] > 0) setSidebarWidth(sizes[0]);
           }}
         >
-          <TabBar
-            uiVariant={uiVariant}
-            onCloseWorkspace={handleCloseWorkspace}
-          />
-        </div>
+          <Allotment.Pane
+            preferredSize={sidebarWidth}
+            minSize={148}
+            maxSize={420}
+            visible={!sidebarCollapsed}
+          >
+            <TabBar
+              uiVariant={uiVariant}
+              onCloseWorkspace={handleCloseWorkspace}
+            />
+          </Allotment.Pane>
 
-        {/* Main content — WorkspaceView always mounted to keep terminals alive */}
-        <div style={{ flex: 1, overflow: "hidden", minWidth: 0, position: "relative" }}>
-          <WorkspaceView />
-          <CommandPalette />
-          {isKeybindingsOpen && <KeybindingsModal onClose={() => setIsKeybindingsOpen(false)} />}
-          {showSetup && (
-            <div style={{ position: "absolute", inset: 0, zIndex: 50, background: "var(--cmux-bg)" }}>
-              <WorkspaceSetup onLaunch={handleLaunch} onCancel={handleCancelSetup} />
-            </div>
-          )}
-        </div>
+          <Allotment.Pane minSize={320}>
+            {mainContent}
+          </Allotment.Pane>
+        </Allotment>
       </div>
     </div>
   );
