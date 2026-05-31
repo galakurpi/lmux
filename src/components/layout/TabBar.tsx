@@ -87,18 +87,30 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
         onClick={() => setHelpOpen(true)}
         title="Lmux help"
         style={{
-          width: 28,
-          height: 28,
-          margin: "8px",
-          borderRadius: 6,
-          border: "1px solid var(--cmux-border)",
-          background: "#000000",
-          color: "var(--cmux-accent)",
+          width: 13,
+          height: 13,
+          margin: "0 0 8px 14px",
+          borderRadius: "50%",
+          border: "1px solid var(--cmux-text-tertiary)",
+          background: "transparent",
+          color: "var(--cmux-text-tertiary)",
           cursor: "pointer",
-          fontSize: 14,
+          fontSize: 9,
           fontWeight: 700,
           lineHeight: 1,
+          padding: 0,
+          opacity: 0.8,
           flexShrink: 0,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "var(--cmux-accent)";
+          e.currentTarget.style.color = "var(--cmux-accent)";
+          e.currentTarget.style.opacity = "1";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "var(--cmux-text-tertiary)";
+          e.currentTarget.style.color = "var(--cmux-text-tertiary)";
+          e.currentTarget.style.opacity = "0.8";
         }}
       >
         ?
