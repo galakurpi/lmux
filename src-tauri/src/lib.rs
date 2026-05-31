@@ -79,11 +79,6 @@ pub fn run() {
                 app.manage(browser::PlatformBrowserManager::new());
             }
 
-            #[cfg(debug_assertions)]
-            {
-                let webview = app.get_webview_window("main").unwrap();
-                webview.open_devtools();
-            }
             Ok(())
         })
         .run(tauri::generate_context!())
