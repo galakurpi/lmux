@@ -36,6 +36,7 @@ pub fn run() {
             commands::terminal::kill_session,
             commands::terminal::get_terminal_config,
             commands::terminal::get_all_cwds,
+            commands::notification::send_desktop_notification,
             commands::workspace::load_persistent_data,
             commands::workspace::save_workspaces,
             commands::workspace::save_settings,

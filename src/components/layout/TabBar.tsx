@@ -14,7 +14,7 @@ const HELP_ROWS = [
   ["New workspace", "Ctrl+Shift+N"],
   ["Switch workspaces", "Ctrl+1..9"],
   ["Close pane", "Ctrl+Shift+W"],
-  ["Latest unread pane", "Ctrl+Shift+U"],
+  ["Latest unread / finished agent", "Ctrl+Shift+U"],
   ["Zoom focused pane in", "Ctrl+Shift++"],
   ["Zoom focused pane out", "Ctrl+Shift+-"],
   ["Find in terminal", "Ctrl+Shift+F"],
@@ -70,7 +70,9 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
             if (m) {
               const paneNotifications = m.notificationCount ?? 0;
               if (paneNotifications > 0) unreadPaneCount++;
-              if (m.lastLogLine) lastLog = m.lastLogLine;
+              if (m.lastNotificationBody || m.lastNotificationTitle || m.lastLogLine) {
+                lastLog = m.lastNotificationBody || m.lastNotificationTitle || m.lastLogLine;
+              }
               if (m.agentStatus && m.agentStatus !== "idle") {
                 statusCounts[m.agentStatus as keyof typeof statusCounts]++;
               }

@@ -27,6 +27,7 @@ impl PtySession {
         data_channel: Channel<Vec<u8>>,
         app_handle: AppHandle,
         cwd: Option<String>,
+        workspace_id: Option<String>,
     ) -> Result<Self, String> {
         let pty_system = native_pty_system();
 
@@ -47,6 +48,11 @@ impl PtySession {
         cmd.env("COLORTERM", "truecolor");
         cmd.env("TERM_PROGRAM", "lmux");
         cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
+        cmd.env("LMUX_SURFACE_ID", &session_id);
+        cmd.env("LMUX_SESSION_ID", &session_id);
+        if let Some(workspace_id) = workspace_id {
+            cmd.env("LMUX_WORKSPACE_ID", workspace_id);
+        }
 
         if let Some(dir) = cwd {
             cmd.cwd(dir);

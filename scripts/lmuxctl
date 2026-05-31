@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+import json
+import os
+import socket
+import sys
+
+
+def port_file() -> str:
+    return os.path.expanduser("~/.lmux/ptr.port")
+
+
+def send_line(line: str) -> int:
+    try:
+        with open(port_file(), "r", encoding="utf-8") as f:
+            port = int(f.read().strip())
+    except Exception as exc:
+        print(f"lmuxctl: Lmux socket is not available: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=3) as sock:
+            sock.sendall(line.encode("utf-8") + b"\n")
+            sock.shutdown(socket.SHUT_WR)
+            response = sock.makefile("r", encoding="utf-8").readline().strip()
+    except Exception as exc:
+        print(f"lmuxctl: failed to contact Lmux: {exc}", file=sys.stderr)
+        return 1
+
+    if response:
+        print(response)
+    return 0
+
+
+def command_json(cmd: str, args: dict) -> str:
+    return json.dumps({"cmd": cmd, "args": args}, separators=(",", ":"))
+
+
+def current_target() -> tuple[str | None, str | None]:
+    return os.environ.get("LMUX_WORKSPACE_ID"), os.environ.get("LMUX_SURFACE_ID")
+
+
+def notify(argv: list[str]) -> int:
+    title = "Notification"
+    subtitle = ""
+    body = ""
+    workspace, surface = current_target()
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--title" and i + 1 < len(argv):
+            title = argv[i + 1]
+            i += 2
+        elif arg == "--subtitle" and i + 1 < len(argv):
+            subtitle = argv[i + 1]
+            i += 2
+        elif arg == "--body" and i + 1 < len(argv):
+            body = argv[i + 1]
+            i += 2
+        elif arg == "--workspace" and i + 1 < len(argv):
+            workspace = argv[i + 1]
+            i += 2
+        elif arg == "--surface" and i + 1 < len(argv):
+            surface = argv[i + 1]
+            i += 2
+        else:
+            body = " ".join(argv[i:])
+            break
+
+    payload = "|".join([title, subtitle, body])
+    if workspace and surface:
+        return send_line(f"notify_target_async {workspace} {surface} {payload}")
+    return send_line(command_json("notify", {"payload": payload}))
+
+
+def status(argv: list[str]) -> int:
+    if not argv:
+        print("usage: lmuxctl status <working|waiting|done|idle> [message]", file=sys.stderr)
+        return 2
+    state = argv[0]
+    message = " ".join(argv[1:])
+    workspace, surface = current_target()
+    return send_line(command_json("agent.status", {
+        "workspace_id": workspace,
+        "surface_id": surface,
+        "status": state,
+        "message": message,
+    }))
+
+
+def claude_hook(argv: list[str]) -> int:
+    event = argv[0] if argv else os.environ.get("hook_event_name", "")
+    try:
+        payload = json.load(sys.stdin)
+    except Exception:
+        payload = {}
+
+    cwd = payload.get("cwd") or os.getcwd()
+    project = os.path.basename(cwd.rstrip("/")) or cwd
+    message = (
+        payload.get("last_assistant_message")
+        or payload.get("message")
+        or payload.get("prompt")
+        or ""
+    )
+
+    lowered = event.lower()
+    if lowered in {"session-start", "sessionstart", "userpromptsubmit", "prompt-submit", "pre-tool-use", "pretooluse"}:
+        return status(["working", f"Claude Code in {project}"])
+    if lowered in {"notification", "permissionrequest", "permission-request"}:
+        status(["waiting", message or "Claude Code needs input"])
+        return notify(["--title", "Claude Code", "--subtitle", "Permission", "--body", message or "Needs input"])
+    if lowered in {"stop", "session-end", "sessionend"}:
+        status(["done", message or f"Completed in {project}"])
+        return notify(["--title", "Claude Code", "--subtitle", f"Completed in {project}", "--body", message])
+    return 0
+
+
+def main() -> int:
+    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:
+        print("usage: lmuxctl notify|status|claude-hook ...", file=sys.stderr)
+        return 2
+    command = sys.argv[1]
+    argv = sys.argv[2:]
+    if command == "notify":
+        return notify(argv)
+    if command == "status":
+        return status(argv)
+    if command == "claude-hook":
+        return claude_hook(argv)
+    if command == "hooks" and len(argv) >= 2 and argv[0] == "claude":
+        return claude_hook(argv[1:])
+    if command == "hooks":
+        return 0
+    return send_line(" ".join(sys.argv[1:]))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

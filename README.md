@@ -27,6 +27,8 @@ Current focus:
 - **Split panes**: horizontal and vertical layouts with resizable dividers
 - **Agent presets**: launch common CLI agents from pane setup
 - **Status visualization**: highlight panes that are working, waiting, or done
+- **cmux-style notifications**: OSC 9/99/777 terminal notifications, pane rings,
+  unread navigation, desktop notifications, and sound
 - **Command palette**: keyboard-first access to common actions
 - **Custom keybindings**: remap shortcuts from the app
 - **Persistent layout**: restore saved workspace structure across launches
@@ -112,6 +114,7 @@ npm run tauri build
 | `Ctrl+Shift+X` | Split pane down |
 | `Ctrl+Shift+W` | Close active pane |
 | `Ctrl+Shift+Arrow` | Focus pane in direction |
+| `Ctrl+Shift+U` | Focus latest unread pane, or latest finished agent if nothing is unread |
 | `Ctrl+Shift+Enter` | Toggle pane zoom |
 | `Ctrl+Shift+H` | Flash focused pane |
 
@@ -120,6 +123,26 @@ npm run tauri build
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Shift+F` | Find in terminal |
+
+## Agent Notifications
+
+Lmux follows cmux's notification model: agents and scripts should emit explicit
+events instead of relying on terminal-output text like "done" or shell prompts.
+
+Supported paths:
+
+- OSC notifications from terminal programs: `OSC 9`, `OSC 99`, and `OSC 777`
+- Socket commands: `notify`, `notify_surface`, `notify_target_async`,
+  `set_status`, and `clear_status`
+- CLI helper: `lmuxctl notify --title "Claude Code" --subtitle "Completed" --body "Done"`
+- Agent launcher: Claude Code is started through `scripts/lmux-agent`, which
+  injects Claude hooks that call back into `lmuxctl hooks claude ...`
+
+Inside Lmux terminals, these env vars identify the current target:
+
+- `LMUX_WORKSPACE_ID`
+- `LMUX_SURFACE_ID`
+- `LMUX_SESSION_ID`
 
 ## Roadmap
 

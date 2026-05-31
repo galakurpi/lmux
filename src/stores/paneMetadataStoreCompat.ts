@@ -4,8 +4,12 @@ export type AgentStatus = "working" | "waiting" | "done" | "idle";
 
 export interface PaneMetadata {
   lastLogLine?: string;
+  lastNotificationTitle?: string;
+  lastNotificationBody?: string;
   notificationCount?: number;
   lastNotificationAt?: number;
+  lastAgentStatusAt?: number;
+  lastFinishedAt?: number;
   cwd?: string;
   gitBranch?: string;
   processTitle?: string;
@@ -17,6 +21,8 @@ export interface PaneMetadataState {
   flashingPaneIds: Set<string>;
   setMetadata: (sessionId: string, data: Partial<PaneMetadata>) => void;
   incrementNotification: (sessionId: string) => void;
+  addNotification: (sessionId: string, title: string, body?: string) => void;
+  setAgentStatus: (sessionId: string, status: AgentStatus, lastLogLine?: string) => void;
   clearNotification: (sessionId: string) => void;
   triggerFlash: (sessionId: string) => void;
 }
@@ -59,6 +65,43 @@ export const usePaneMetadataStore = create<PaneMetadataState>((set) => ({
     };
     console.log(`[PERF] incrementNotification (${oldCount} -> ${oldCount + 1}) - ${(performance.now() - start).toFixed(2)}ms`);
     return result;
+  }),
+
+  addNotification: (sessionId, title, body) => set((state) => {
+    const prev = state.metadata[sessionId];
+    const oldCount = prev?.notificationCount || 0;
+    const cleanTitle = title.trim() || "Notification";
+    const cleanBody = body?.trim() || "";
+    return {
+      metadata: {
+        ...state.metadata,
+        [sessionId]: {
+          ...prev,
+          notificationCount: oldCount + 1,
+          lastNotificationAt: Date.now(),
+          lastNotificationTitle: cleanTitle,
+          lastNotificationBody: cleanBody,
+          lastLogLine: cleanBody || cleanTitle,
+        },
+      },
+    };
+  }),
+
+  setAgentStatus: (sessionId, status, lastLogLine) => set((state) => {
+    const prev = state.metadata[sessionId];
+    const now = Date.now();
+    return {
+      metadata: {
+        ...state.metadata,
+        [sessionId]: {
+          ...prev,
+          agentStatus: status,
+          lastAgentStatusAt: now,
+          ...(status === "done" ? { lastFinishedAt: now } : {}),
+          ...(lastLogLine ? { lastLogLine } : {}),
+        },
+      },
+    };
   }),
   
   clearNotification: (sessionId) => set((state) => ({

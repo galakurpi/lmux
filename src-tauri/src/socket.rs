@@ -58,43 +58,89 @@ async fn handle_connection(
                     continue;
                 }
                 
-                if let Ok(mut parsed) = serde_json::from_str::<Value>(trimmed) {
-                    if let Some(obj) = parsed.as_object_mut() {
-                        let cmd = obj.get("cmd").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let args = obj.remove("args").unwrap_or(Value::Null);
-                        
-                        let id = state.next_id.fetch_add(1, Ordering::SeqCst);
-                        let (tx, rx) = oneshot::channel();
-                        
-                        state.pending_requests.insert(id, tx);
-                        
-                        let req = SocketRequest { id, cmd, args };
-                        if app.emit("socket-request", &req).is_ok() {
-                            // Wait for frontend response
-                            if let Ok(resp) = rx.await {
-                                let resp_json = serde_json::to_string(&resp).unwrap_or_default();
-                                let _ = writer.write_all(resp_json.as_bytes()).await;
-                                let _ = writer.write_all(b"\n").await;
-                                let _ = writer.flush().await;
-                            }
-                        } else {
-                            state.pending_requests.remove(&id);
-                            let err_resp = SocketResponse {
-                                id,
-                                result: None,
-                                error: Some("Frontend not ready".to_string()),
-                            };
-                            let resp_json = serde_json::to_string(&err_resp).unwrap_or_default();
+                if let Some((cmd, args)) = parse_socket_line(trimmed) {
+                    let id = state.next_id.fetch_add(1, Ordering::SeqCst);
+                    let (tx, rx) = oneshot::channel();
+
+                    state.pending_requests.insert(id, tx);
+
+                    let req = SocketRequest { id, cmd, args };
+                    if app.emit("socket-request", &req).is_ok() {
+                        // Wait for frontend response
+                        if let Ok(resp) = rx.await {
+                            let resp_json = serde_json::to_string(&resp).unwrap_or_default();
                             let _ = writer.write_all(resp_json.as_bytes()).await;
                             let _ = writer.write_all(b"\n").await;
                             let _ = writer.flush().await;
                         }
+                    } else {
+                        state.pending_requests.remove(&id);
+                        let err_resp = SocketResponse {
+                            id,
+                            result: None,
+                            error: Some("Frontend not ready".to_string()),
+                        };
+                        let resp_json = serde_json::to_string(&err_resp).unwrap_or_default();
+                        let _ = writer.write_all(resp_json.as_bytes()).await;
+                        let _ = writer.write_all(b"\n").await;
+                        let _ = writer.flush().await;
                     }
                 }
             }
             Err(_) => break,
         }
     }
+}
+
+fn parse_socket_line(line: &str) -> Option<(String, Value)> {
+    if let Ok(mut parsed) = serde_json::from_str::<Value>(line) {
+        let obj = parsed.as_object_mut()?;
+        let cmd = obj.get("cmd").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let args = obj.remove("args").unwrap_or(Value::Null);
+        return Some((cmd, args));
+    }
+
+    let mut parts = line.splitn(2, char::is_whitespace);
+    let cmd = parts.next()?.trim();
+    let rest = parts.next().unwrap_or("").trim();
+    let args = match cmd {
+        "notify" => serde_json::json!({ "payload": rest }),
+        "notify_surface" => {
+            let mut surface_parts = rest.splitn(2, char::is_whitespace);
+            serde_json::json!({
+                "surface_id": surface_parts.next().unwrap_or("").trim(),
+                "payload": surface_parts.next().unwrap_or("").trim(),
+            })
+        }
+        "notify_target" | "notify_target_async" => {
+            let mut target_parts = rest.splitn(3, char::is_whitespace);
+            serde_json::json!({
+                "workspace_id": target_parts.next().unwrap_or("").trim(),
+                "surface_id": target_parts.next().unwrap_or("").trim(),
+                "payload": target_parts.next().unwrap_or("").trim(),
+            })
+        }
+        "list_notifications" | "clear_notifications" => serde_json::json!({ "payload": rest }),
+        "set_status" => {
+            let mut status_parts = rest.splitn(4, char::is_whitespace);
+            serde_json::json!({
+                "workspace_id": status_parts.next().unwrap_or("").trim(),
+                "surface_id": status_parts.next().unwrap_or("").trim(),
+                "status": status_parts.next().unwrap_or("").trim(),
+                "message": status_parts.next().unwrap_or("").trim(),
+            })
+        }
+        "clear_status" => {
+            let mut status_parts = rest.splitn(2, char::is_whitespace);
+            serde_json::json!({
+                "workspace_id": status_parts.next().unwrap_or("").trim(),
+                "surface_id": status_parts.next().unwrap_or("").trim(),
+            })
+        }
+        _ => return None,
+    };
+
+    Some((cmd.to_string(), args))
 }
 
 /// Get the path to the port file for socket discovery

@@ -206,6 +206,7 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
                     onUrlClick={handleUrlClick}
                     cwd={paneCwd}
                     fontSize={paneFontSize}
+                    workspaceId={workspaceId}
                   />
                 )}
               </ErrorBoundary>

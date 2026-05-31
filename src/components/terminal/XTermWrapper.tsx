@@ -12,15 +12,21 @@ import {
   onPtyExit,
   getTerminalConfig,
 } from "../../lib/ipc";
-import { usePaneMetadataStore, useUiStore } from "../../stores/workspaceStore";
+import { usePaneMetadataStore } from "../../stores/workspaceStore";
 import type { AgentStatus } from "../../stores/paneMetadataStoreCompat";
 import { useKeybindingStore } from "../../stores/keybindingStore";
 import { usePaneFontStore } from "../../stores/paneFontStore";
 import { useThemeStore } from "../../stores/themeStore";
+import {
+  addPaneNotification,
+  createOscNotificationState,
+  parseOscNotification,
+} from "../../lib/notifications";
 import type { ITheme } from "@xterm/xterm";
 
 interface XTermWrapperProps {
   sessionId: string;
+  workspaceId?: string;
   command: string;
   args?: string[];
   onExit?: () => void;
@@ -120,6 +126,7 @@ function ensureConfigLoaded(): Promise<void> {
 
 export default memo(function XTermWrapper({
   sessionId,
+  workspaceId,
   command,
   args = [],
   onExit,
@@ -218,6 +225,7 @@ export default memo(function XTermWrapper({
         smoothScrollDuration: 0,
       });
       termRef.current = term;
+      const oscNotificationState = createOscNotificationState();
 
       fitAddon = new FitAddon();
       fitAddonRef.current = fitAddon;
@@ -235,6 +243,19 @@ export default memo(function XTermWrapper({
       }));
 
       term.open(container!);
+
+      const handleOscNotification = (ident: 9 | 99 | 777, data: string): boolean => {
+        if (suppressNotifications) return true;
+        const notification = parseOscNotification(ident, data, oscNotificationState);
+        if (notification) {
+          addPaneNotification(sessionId, notification, { desktop: true, sound: true });
+        }
+        return true;
+      };
+
+      term.parser.registerOscHandler(9, (data) => handleOscNotification(9, data));
+      term.parser.registerOscHandler(99, (data) => handleOscNotification(99, data));
+      term.parser.registerOscHandler(777, (data) => handleOscNotification(777, data));
 
       // Forward modifier+key combos that xterm intercepts before the PTY sees them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
@@ -329,8 +350,8 @@ export default memo(function XTermWrapper({
               agentStatus = "working";
             } else if (/\?\s*(Yes|No|\[y\/n\])/i.test(stripped) || /do you want to/i.test(stripped) || /press enter/i.test(stripped)) {
               agentStatus = "waiting";
-            } else if (/\u2713\s*(done|complete|finished)/i.test(stripped) || /^>\s*$/.test(stripped) || /\$\s*$/.test(stripped)) {
-              agentStatus = "done";
+            } else if (/^>\s*$/.test(stripped) || /[$#]\s*$/.test(stripped)) {
+              agentStatus = "idle";
             }
 
             // Filter out terminal chrome / status bar noise before storing as log line.
@@ -344,7 +365,7 @@ export default memo(function XTermWrapper({
               /^\s*[\u2500-\u257F]+\s*$/.test(stripped) || // box-drawing chars only
               stripped.length < 3;
 
-            // When agent returns to shell prompt (done/idle), clear the log line.
+            // When agent returns to shell prompt, clear the log line.
             // For noise lines, omit the key entirely so the previous meaningful value is preserved.
             const isShellPrompt = /^>\s*$/.test(stripped) || /\$\s*$/.test(stripped);
             const logLineUpdate = isShellPrompt
@@ -357,13 +378,6 @@ export default memo(function XTermWrapper({
               ...logLineUpdate,
               ...(agentStatus ? { agentStatus } : {}),
             });
-            // Trigger notification only when pane is not active and not suppressed
-            if (!suppressNotifications) {
-              const activePaneId = useUiStore.getState().activePaneId;
-              if (activePaneId !== sessionId) {
-                usePaneMetadataStore.getState().incrementNotification(sessionId);
-              }
-            }
           }
         }, 500);
       });
@@ -388,7 +402,7 @@ export default memo(function XTermWrapper({
         await createSession(sessionId, command, args, cols, rows, (rawData: ArrayBuffer) => {
           if (disposed || !term) return;
           term.write(new Uint8Array(rawData));
-        }, cwd);
+        }, cwd, workspaceId);
         sessionStarted = true;
         console.log(`[PERF] Terminal session created - ${(performance.now() - initStart).toFixed(2)}ms`);
       } catch (err) {

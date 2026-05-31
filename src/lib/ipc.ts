@@ -9,6 +9,7 @@ export async function createSession(
   rows: number,
   onData: (data: ArrayBuffer) => void,
   cwd?: string,
+  workspaceId?: string,
 ): Promise<void> {
   const channel = new Channel<ArrayBuffer>();
   channel.onmessage = onData;
@@ -20,6 +21,7 @@ export async function createSession(
     rows,
     onData: channel,
     cwd: cwd ?? null,
+    workspaceId: workspaceId ?? null,
   });
 }
 
@@ -148,4 +150,12 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 
 export async function sendSocketResponse(id: number, result: any, error: string | null): Promise<void> {
   return invoke("socket_response", { id, result, error });
+}
+
+export async function sendDesktopNotification(
+  title: string,
+  body?: string,
+  sound = true,
+): Promise<void> {
+  return invoke("send_desktop_notification", { title, body: body ?? null, sound });
 }

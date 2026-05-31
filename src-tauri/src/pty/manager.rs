@@ -25,6 +25,7 @@ impl SessionManager {
         data_channel: Channel<Vec<u8>>,
         app_handle: AppHandle,
         cwd: Option<String>,
+        workspace_id: Option<String>,
     ) -> Result<(), String> {
         let session = PtySession::spawn(
             session_id.clone(),
@@ -35,6 +36,7 @@ impl SessionManager {
             data_channel,
             app_handle,
             cwd,
+            workspace_id,
         )?;
         self.sessions.insert(session_id, session);
         Ok(())

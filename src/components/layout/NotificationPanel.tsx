@@ -14,7 +14,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
 
   // Collect all panes with notifications (memoized to avoid O(n*m) rebuild)
   const notifications = useMemo(() => {
-    const result: { workspaceId: string; workspaceName: string; workspaceColor: string; sessionId: string; count: number; lastLogLine?: string }[] = [];
+    const result: { workspaceId: string; workspaceName: string; workspaceColor: string; sessionId: string; count: number; title?: string; body?: string; lastLogLine?: string }[] = [];
     for (const ws of workspaces) {
       for (const pane of ws.panes) {
         const m = paneMetadata[pane.sessionId];
@@ -25,6 +25,8 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
             workspaceColor: ws.color ?? "#00ff41",
             sessionId: pane.sessionId,
             count: m.notificationCount ?? 0,
+            title: m.lastNotificationTitle,
+            body: m.lastNotificationBody,
             lastLogLine: m.lastLogLine,
           });
         }
@@ -132,7 +134,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
                   {n.count}
                 </span>
               </div>
-              {n.lastLogLine && (
+              {(n.body || n.lastLogLine || n.title) && (
                 <div style={{
                   padding: "0 12px 8px 28px",
                   fontSize: 11,
@@ -142,7 +144,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}>
-                  {n.lastLogLine}
+                  {n.body || n.lastLogLine || n.title}
                 </div>
               )}
             </div>

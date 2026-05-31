@@ -4,10 +4,13 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   useWorkspaceListStore,
   useWorkspaceLayoutStore,
-  useUiStore
+  useUiStore,
+  usePaneMetadataStore,
 } from "../../stores/workspaceStore";
 import { sendSocketResponse } from "../../lib/ipc";
 import { useThemeStore } from "../../stores/themeStore";
+import { addPaneNotification, parseNotificationPayload } from "../../lib/notifications";
+import type { AgentStatus } from "../../stores/paneMetadataStoreCompat";
 
 interface SocketRequest {
   id: number;
@@ -26,6 +29,47 @@ export default function SocketListener() {
         const listStore = useWorkspaceListStore.getState();
         const layoutStore = useWorkspaceLayoutStore.getState();
         const uiStore = useUiStore.getState();
+        const metadataStore = usePaneMetadataStore.getState();
+
+        const activeWorkspace = () => listStore.workspaces.find((w) => w.id === listStore.activeWorkspaceId);
+        const activeSessionId = () => {
+          const ws = activeWorkspace();
+          const pane = ws?.panes.find((p) => p.sessionId === uiStore.activePaneId) ?? ws?.panes[0];
+          const activeTab = pane?.tabs.find((t) => t.id === pane.activeTabId);
+          return activeTab?.sessionId ?? pane?.sessionId ?? null;
+        };
+        const sessionInWorkspace = (workspaceId: string, surfaceId?: string) => {
+          const ws = listStore.workspaces.find((w) => w.id === workspaceId);
+          if (!ws) return null;
+          if (!surfaceId) {
+            const pane = ws.panes.find((p) => p.sessionId === uiStore.activePaneId) ?? ws.panes[0];
+            const activeTab = pane?.tabs.find((t) => t.id === pane.activeTabId);
+            return activeTab?.sessionId ?? pane?.sessionId ?? null;
+          }
+          const index = Number(surfaceId);
+          if (Number.isInteger(index) && index >= 0 && index < ws.panes.length) {
+            const pane = ws.panes[index];
+            const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+            return activeTab?.sessionId ?? pane.sessionId;
+          }
+          for (const pane of ws.panes) {
+            if (pane.sessionId === surfaceId || pane.id === surfaceId) return pane.sessionId;
+            const tab = pane.tabs.find((t) => t.sessionId === surfaceId || t.id === surfaceId);
+            if (tab) return tab.sessionId;
+          }
+          return null;
+        };
+        const notifySession = (sessionId: string | null, payload: string, fallbackTitle = "Notification") => {
+          if (!sessionId) {
+            error = "Notification target not found";
+            return;
+          }
+          const notification = payload.trim()
+            ? parseNotificationPayload(payload)
+            : { title: fallbackTitle };
+          addPaneNotification(sessionId, notification, { desktop: true, sound: true });
+          result = { success: true, surface_id: sessionId };
+        };
         
         switch (cmd) {
           case "workspace.list":
@@ -107,6 +151,122 @@ export default function SocketListener() {
             } else {
               error = "No active pane to close";
             }
+            break;
+          }
+
+          case "notify":
+          case "notification.create":
+          case "notification.create_for_caller": {
+            const sessionId = args?.surface_id
+              ? sessionInWorkspace(args?.workspace_id || listStore.activeWorkspaceId || "", args.surface_id)
+              : activeSessionId();
+            const payload = args?.payload
+              ?? [args?.title, args?.subtitle, args?.body].filter((v) => v !== undefined && v !== null).join("|");
+            notifySession(sessionId, payload);
+            break;
+          }
+
+          case "notify_surface":
+          case "notification.create_for_surface": {
+            const workspaceId = args?.workspace_id || listStore.activeWorkspaceId;
+            if (!workspaceId) {
+              error = "No active workspace";
+              break;
+            }
+            const sessionId = sessionInWorkspace(workspaceId, args?.surface_id);
+            const payload = args?.payload
+              ?? [args?.title, args?.subtitle, args?.body].filter((v) => v !== undefined && v !== null).join("|");
+            notifySession(sessionId, payload);
+            break;
+          }
+
+          case "notify_target":
+          case "notify_target_async":
+          case "notification.create_for_target": {
+            const workspaceId = args?.workspace_id;
+            const surfaceId = args?.surface_id;
+            if (!workspaceId || !surfaceId) {
+              error = "Missing workspace_id or surface_id";
+              break;
+            }
+            const sessionId = sessionInWorkspace(workspaceId, surfaceId);
+            const payload = args?.payload
+              ?? [args?.title, args?.subtitle, args?.body].filter((v) => v !== undefined && v !== null).join("|");
+            notifySession(sessionId, payload);
+            break;
+          }
+
+          case "list_notifications":
+          case "notification.list": {
+            result = listStore.workspaces.flatMap((workspace) =>
+              workspace.panes.flatMap((pane) => {
+                const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+                const sessionId = activeTab?.sessionId ?? pane.sessionId;
+                const meta = metadataStore.metadata[sessionId];
+                if (!meta || (meta.notificationCount ?? 0) <= 0) return [];
+                return [{
+                  workspace_id: workspace.id,
+                  surface_id: sessionId,
+                  title: meta.lastNotificationTitle ?? "Notification",
+                  body: meta.lastNotificationBody ?? "",
+                  count: meta.notificationCount ?? 0,
+                  created_at: meta.lastNotificationAt ?? null,
+                  is_read: false,
+                }];
+              })
+            );
+            break;
+          }
+
+          case "clear_notifications":
+          case "notification.clear": {
+            const workspaceId = args?.workspace_id;
+            const surfaceId = args?.surface_id;
+            for (const workspace of listStore.workspaces) {
+              if (workspaceId && workspace.id !== workspaceId) continue;
+              for (const pane of workspace.panes) {
+                for (const tab of pane.tabs) {
+                  if (surfaceId && tab.sessionId !== surfaceId && pane.sessionId !== surfaceId && pane.id !== surfaceId) continue;
+                  metadataStore.clearNotification(tab.sessionId);
+                }
+              }
+            }
+            result = { success: true };
+            break;
+          }
+
+          case "set_status":
+          case "agent.status": {
+            const workspaceId = args?.workspace_id || listStore.activeWorkspaceId;
+            const sessionId = args?.surface_id && workspaceId
+              ? sessionInWorkspace(workspaceId, args.surface_id)
+              : activeSessionId();
+            const status = String(args?.status || args?.state || "idle").toLowerCase();
+            if (!sessionId) {
+              error = "Status target not found";
+              break;
+            }
+            if (!["working", "waiting", "done", "idle"].includes(status)) {
+              error = `Invalid status: ${status}`;
+              break;
+            }
+            metadataStore.setAgentStatus(sessionId, status as AgentStatus, args?.message || args?.last_log_line);
+            result = { success: true, surface_id: sessionId, status };
+            break;
+          }
+
+          case "clear_status":
+          case "agent.clear_status": {
+            const workspaceId = args?.workspace_id || listStore.activeWorkspaceId;
+            const sessionId = args?.surface_id && workspaceId
+              ? sessionInWorkspace(workspaceId, args.surface_id)
+              : activeSessionId();
+            if (!sessionId) {
+              error = "Status target not found";
+              break;
+            }
+            metadataStore.setAgentStatus(sessionId, "idle");
+            result = { success: true, surface_id: sessionId };
             break;
           }
 

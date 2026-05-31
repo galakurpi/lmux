@@ -54,10 +54,11 @@ pub fn create_session(
     rows: u16,
     on_data: Channel<Vec<u8>>,
     cwd: Option<String>,
+    workspace_id: Option<String>,
 ) -> Result<(), String> {
     let cwd = default_session_cwd().or(cwd);
     state.session_manager.create(
-        session_id, &command, &args, cols, rows, on_data, app_handle, cwd,
+        session_id, &command, &args, cols, rows, on_data, app_handle, cwd, workspace_id,
     )
 }
 
