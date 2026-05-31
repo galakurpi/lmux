@@ -195,6 +195,24 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
       // Skip if modals are open
       if (isPaletteOpen || isKeybindingsOpen) return;
 
+      const isPaneZoomIn =
+        e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
+        (e.key === "+" || e.key === "=" || e.code === "Equal" || e.code === "NumpadAdd");
+      const isPaneZoomOut =
+        e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
+        (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract");
+
+      if (isPaneZoomIn || isPaneZoomOut) {
+        const { activePaneId: apid } = stateRef.current;
+        if (!apid) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent("lmux-pane-font-zoom", {
+          detail: { sessionId: apid, delta: isPaneZoomIn ? 1 : -1 },
+        }));
+        return;
+      }
+
       // Get all actions that match this keyboard event (BridgeSpace pattern)
       const actions = getActionsForEvent(e);
       

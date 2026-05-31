@@ -74,6 +74,13 @@ const DEFAULT_THEME: ITheme = {
   brightWhite: "#ffffff",
 };
 
+function isPaneZoomKey(e: KeyboardEvent): 1 | -1 | 0 {
+  if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return 0;
+  if (e.key === "+" || e.key === "=" || e.code === "Equal" || e.code === "NumpadAdd") return 1;
+  if (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract") return -1;
+  return 0;
+}
+
 // Cache terminal config globally — fetched once, reused across all panes
 let cachedConfig: { theme: ITheme; fontSize: number; fontFamily: string } | null = null;
 let configPromise: Promise<void> | null = null;
@@ -127,6 +134,25 @@ export default memo(function XTermWrapper({
 
   const storeTheme = useThemeStore((s) => s.theme);
   const storeFontSize = useThemeStore((s) => s.fontSize);
+
+  const zoomPaneFont = useCallback((delta: 1 | -1) => {
+    const term = termRef.current;
+    if (!term) return;
+    const current = paneFontSizeRef.current ?? term.options.fontSize ?? storeFontSize;
+    const next = Math.max(8, Math.min(40, current + delta));
+    paneFontSizeRef.current = next;
+    term.options.fontSize = next;
+    setTimeout(() => fitAddonRef.current?.fit(), 10);
+  }, [storeFontSize]);
+
+  useEffect(() => {
+    const onPaneZoom = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId: string; delta: 1 | -1 }>).detail;
+      if (detail?.sessionId === sessionId) zoomPaneFont(detail.delta);
+    };
+    window.addEventListener("lmux-pane-font-zoom", onPaneZoom);
+    return () => window.removeEventListener("lmux-pane-font-zoom", onPaneZoom);
+  }, [sessionId, zoomPaneFont]);
 
   // Dynamically update terminal theme and font size
   useEffect(() => {
@@ -203,20 +229,9 @@ export default memo(function XTermWrapper({
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (e.type !== "keydown") return true;
 
-        const isPaneZoomIn =
-          e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
-          (e.key === "+" || e.key === "=" || e.code === "Equal" || e.code === "NumpadAdd");
-        const isPaneZoomOut =
-          e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
-          (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract");
-
-        if (isPaneZoomIn || isPaneZoomOut) {
-          if (!term) return false;
-          const current = paneFontSizeRef.current ?? term.options.fontSize ?? storeFontSize;
-          const next = Math.max(8, Math.min(40, current + (isPaneZoomIn ? 1 : -1)));
-          paneFontSizeRef.current = next;
-          term.options.fontSize = next;
-          setTimeout(() => fitAddonRef.current?.fit(), 10);
+        const paneZoomDelta = isPaneZoomKey(e);
+        if (paneZoomDelta) {
+          zoomPaneFont(paneZoomDelta);
           return false;
         }
 
