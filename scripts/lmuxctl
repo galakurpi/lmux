@@ -9,7 +9,7 @@ def port_file() -> str:
     return os.path.expanduser("~/.lmux/ptr.port")
 
 
-def send_line(line: str) -> int:
+def send_line(line: str, quiet: bool = False) -> int:
     try:
         with open(port_file(), "r", encoding="utf-8") as f:
             port = int(f.read().strip())
@@ -26,7 +26,7 @@ def send_line(line: str) -> int:
         print(f"lmuxctl: failed to contact Lmux: {exc}", file=sys.stderr)
         return 1
 
-    if response:
+    if response and not quiet:
         print(response)
     return 0
 
@@ -39,7 +39,7 @@ def current_target() -> tuple[str | None, str | None]:
     return os.environ.get("LMUX_WORKSPACE_ID"), os.environ.get("LMUX_SURFACE_ID")
 
 
-def notify(argv: list[str]) -> int:
+def notify(argv: list[str], quiet: bool = False) -> int:
     title = "Notification"
     subtitle = ""
     body = ""
@@ -68,11 +68,11 @@ def notify(argv: list[str]) -> int:
 
     payload = "|".join([title, subtitle, body])
     if workspace and surface:
-        return send_line(f"notify_target_async {workspace} {surface} {payload}")
-    return send_line(command_json("notify", {"payload": payload}))
+        return send_line(f"notify_target_async {workspace} {surface} {payload}", quiet=quiet)
+    return send_line(command_json("notify", {"payload": payload}), quiet=quiet)
 
 
-def status(argv: list[str]) -> int:
+def status(argv: list[str], quiet: bool = False) -> int:
     if not argv:
         print("usage: lmuxctl status <working|waiting|done|idle> [message]", file=sys.stderr)
         return 2
@@ -84,10 +84,25 @@ def status(argv: list[str]) -> int:
         "surface_id": surface,
         "status": state,
         "message": message,
-    }))
+    }), quiet=quiet)
 
 
-def claude_hook(argv: list[str]) -> int:
+def hook_message(payload: dict) -> str:
+    for key in (
+        "last_assistant_message",
+        "message",
+        "prompt",
+        "system_message",
+        "stopReason",
+        "reason",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def lifecycle_hook(agent_label: str, argv: list[str]) -> int:
     event = argv[0] if argv else os.environ.get("hook_event_name", "")
     try:
         payload = json.load(sys.stdin)
@@ -96,23 +111,62 @@ def claude_hook(argv: list[str]) -> int:
 
     cwd = payload.get("cwd") or os.getcwd()
     project = os.path.basename(cwd.rstrip("/")) or cwd
-    message = (
-        payload.get("last_assistant_message")
-        or payload.get("message")
-        or payload.get("prompt")
-        or ""
-    )
-
+    message = hook_message(payload)
     lowered = event.lower()
-    if lowered in {"session-start", "sessionstart", "userpromptsubmit", "prompt-submit", "pre-tool-use", "pretooluse"}:
-        return status(["working", f"Claude Code in {project}"])
-    if lowered in {"notification", "permissionrequest", "permission-request"}:
-        status(["waiting", message or "Claude Code needs input"])
-        return notify(["--title", "Claude Code", "--subtitle", "Permission", "--body", message or "Needs input"])
-    if lowered in {"stop", "session-end", "sessionend"}:
-        status(["done", message or f"Completed in {project}"])
-        return notify(["--title", "Claude Code", "--subtitle", f"Completed in {project}", "--body", message])
+
+    working_events = {
+        "session-start",
+        "sessionstart",
+        "startup",
+        "resume",
+        "userpromptsubmit",
+        "prompt-submit",
+        "pre-tool-use",
+        "pretooluse",
+        "post-tool-use",
+        "posttooluse",
+        "beforeagent",
+        "before-agent",
+        "beforetool",
+        "before-tool",
+        "beforemodel",
+        "before-model",
+        "subagentstart",
+        "subagent-start",
+    }
+    waiting_events = {"notification", "permissionrequest", "permission-request"}
+    done_events = {
+        "stop",
+        "session-end",
+        "sessionend",
+        "afteragent",
+        "after-agent",
+    }
+    quiet = True
+
+    if lowered in working_events:
+        return status(["working", f"{agent_label} in {project}"], quiet=quiet)
+    if lowered in waiting_events:
+        status(["waiting", message or f"{agent_label} needs input"], quiet=quiet)
+        return notify([
+            "--title", agent_label,
+            "--subtitle", "Needs input",
+            "--body", message or "Waiting for approval or input",
+        ], quiet=quiet)
+    if lowered in {"subagentstop", "subagent-stop"}:
+        return status(["done", message or f"{agent_label} subagent finished in {project}"], quiet=quiet)
+    if lowered in done_events:
+        status(["done", message or f"Completed in {project}"], quiet=quiet)
+        return notify([
+            "--title", agent_label,
+            "--subtitle", f"Completed in {project}",
+            "--body", message,
+        ], quiet=quiet)
     return 0
+
+
+def claude_hook(argv: list[str]) -> int:
+    return lifecycle_hook("Claude Code", argv)
 
 
 def main() -> int:
@@ -129,6 +183,12 @@ def main() -> int:
         return claude_hook(argv)
     if command == "hooks" and len(argv) >= 2 and argv[0] == "claude":
         return claude_hook(argv[1:])
+    if command == "hooks" and len(argv) >= 2 and argv[0] == "codex":
+        return lifecycle_hook("Codex", argv[1:])
+    if command == "hooks" and len(argv) >= 2 and argv[0] == "gemini":
+        return lifecycle_hook("Gemini", argv[1:])
+    if command == "hooks" and len(argv) >= 2 and argv[0] == "aider":
+        return lifecycle_hook("Aider", argv[1:])
     if command == "hooks":
         return 0
     return send_line(" ".join(sys.argv[1:]))

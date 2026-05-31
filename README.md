@@ -135,8 +135,17 @@ Supported paths:
 - Socket commands: `notify`, `notify_surface`, `notify_target_async`,
   `set_status`, and `clear_status`
 - CLI helper: `lmuxctl notify --title "Claude Code" --subtitle "Completed" --body "Done"`
-- Agent launcher: Claude Code is started through `scripts/lmux-agent`, which
-  injects Claude hooks that call back into `lmuxctl hooks claude ...`
+- Agent launcher: Claude Code and Codex are started through `scripts/lmux-agent`.
+  The launcher injects Claude Code `--settings` hooks and Codex lifecycle hooks
+  that call back into `lmuxctl hooks <agent> ...`.
+- Gemini uses a temporary Gemini settings layer from `scripts/lmux-agent` with
+  native Gemini hooks plus OSC terminal notifications. That path is implemented,
+  but not locally verified because the Gemini CLI is not installed on this
+  machine.
+- Aider currently uses the same launcher and socket/status contract.
+
+Agent status is not inferred from visible terminal output. `working`, `waiting`,
+and `done` come from explicit hooks or socket commands, matching cmux's pattern.
 
 Inside Lmux terminals, these env vars identify the current target:
 

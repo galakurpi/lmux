@@ -13,7 +13,6 @@ import {
   getTerminalConfig,
 } from "../../lib/ipc";
 import { usePaneMetadataStore } from "../../stores/workspaceStore";
-import type { AgentStatus } from "../../stores/paneMetadataStoreCompat";
 import { useKeybindingStore } from "../../stores/keybindingStore";
 import { usePaneFontStore } from "../../stores/paneFontStore";
 import { useThemeStore } from "../../stores/themeStore";
@@ -343,16 +342,7 @@ export default memo(function XTermWrapper({
           if (lastLine.length > 0 && lastLine !== _lastParsedOut) {
             _lastParsedOut = lastLine;
 
-            // Detect Claude Code agent status from output patterns
-            let agentStatus: AgentStatus | undefined;
             const stripped = lastLine.replace(/\x1b\[[0-9;]*m/g, "").trim();
-            if (/(\u2737|\u2731|esc to interrupt)/i.test(stripped) || /working\.\.\./i.test(stripped)) {
-              agentStatus = "working";
-            } else if (/\?\s*(Yes|No|\[y\/n\])/i.test(stripped) || /do you want to/i.test(stripped) || /press enter/i.test(stripped)) {
-              agentStatus = "waiting";
-            } else if (/^>\s*$/.test(stripped) || /[$#]\s*$/.test(stripped)) {
-              agentStatus = "idle";
-            }
 
             // Filter out terminal chrome / status bar noise before storing as log line.
             // These patterns match Claude Code's bottom status bar (token cost, session info)
@@ -376,7 +366,6 @@ export default memo(function XTermWrapper({
 
             usePaneMetadataStore.getState().setMetadata(sessionId, {
               ...logLineUpdate,
-              ...(agentStatus ? { agentStatus } : {}),
             });
           }
         }, 500);

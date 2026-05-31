@@ -37,11 +37,62 @@ fi
 case "$agent" in
   claude)
     export LMUX_HOOK_BIN="$ctl"
-    hooks_json='{"preferredNotifChannel":"notifications_disabled","hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-start","timeout":10}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude stop","timeout":10}]}],"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-end","timeout":1}]}],"Notification":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude notification","timeout":10}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude prompt-submit","timeout":10}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude pre-tool-use","timeout":5,"async":true}]}],"PermissionRequest":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude permission-request","timeout":125}]}}}'
+    hooks_json='{"preferredNotifChannel":"notifications_disabled","hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-start","timeout":10}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude stop","timeout":10}]}],"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-end","timeout":1}]}],"Notification":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude notification","timeout":10}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude prompt-submit","timeout":10}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude pre-tool-use","timeout":5,"async":true}]}],"PermissionRequest":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude permission-request","timeout":125}]}]}}'
     "$ctl" status working "Claude Code" >/dev/null 2>&1 || true
     exec "$real" --settings "$hooks_json" "$@"
     ;;
-  codex|gemini|aider)
+  codex)
+    codex_args=(
+      --config 'features.hooks=true'
+      --config "hooks.SessionStart=[{matcher=\"startup|resume|clear|compact\",hooks=[{type=\"command\",command=\"$ctl hooks codex session-start\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
+      --config "hooks.UserPromptSubmit=[{hooks=[{type=\"command\",command=\"$ctl hooks codex prompt-submit\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
+      --config "hooks.PermissionRequest=[{matcher=\"*\",hooks=[{type=\"command\",command=\"$ctl hooks codex permission-request\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
+      --config "hooks.SubagentStart=[{matcher=\"*\",hooks=[{type=\"command\",command=\"$ctl hooks codex subagent-start\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
+      --config "hooks.SubagentStop=[{matcher=\"*\",hooks=[{type=\"command\",command=\"$ctl hooks codex subagent-stop\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
+      --config "hooks.Stop=[{hooks=[{type=\"command\",command=\"$ctl hooks codex stop\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
+    )
+    if [[ "${LMUX_CODEX_BYPASS_HOOK_TRUST:-1}" != "0" ]]; then
+      codex_args+=(--dangerously-bypass-hook-trust)
+    fi
+    "$ctl" status working "Codex" >/dev/null 2>&1 || true
+    exec "$real" "${codex_args[@]}" "$@"
+    ;;
+  gemini)
+    gemini_config_dir="$(mktemp -d "${TMPDIR:-/tmp}/lmux-gemini-hooks.XXXXXX")"
+    gemini_config="$gemini_config_dir/settings.json"
+    cat > "$gemini_config" <<EOF
+{
+  "general": {
+    "enableNotifications": true,
+    "notificationMethod": "osc777"
+  },
+  "hooksConfig": {
+    "enabled": true,
+    "notifications": false
+  },
+  "hooks": {
+    "SessionStart": [
+      {"matcher": "startup|resume", "hooks": [{"name": "lmux-session-start", "type": "command", "command": "$ctl hooks gemini session-start"}]}
+    ],
+    "BeforeAgent": [
+      {"matcher": "*", "hooks": [{"name": "lmux-before-agent", "type": "command", "command": "$ctl hooks gemini before-agent"}]}
+    ],
+    "BeforeTool": [
+      {"matcher": "*", "hooks": [{"name": "lmux-before-tool", "type": "command", "command": "$ctl hooks gemini before-tool"}]}
+    ],
+    "AfterAgent": [
+      {"matcher": "*", "hooks": [{"name": "lmux-after-agent", "type": "command", "command": "$ctl hooks gemini after-agent"}]}
+    ],
+    "SessionEnd": [
+      {"matcher": "exit", "hooks": [{"name": "lmux-session-end", "type": "command", "command": "$ctl hooks gemini session-end"}]}
+    ]
+  }
+}
+EOF
+    "$ctl" status working "Gemini" >/dev/null 2>&1 || true
+    exec env GEMINI_CLI_SYSTEM_DEFAULTS_PATH="$gemini_config" "$real" "$@"
+    ;;
+  aider)
     "$ctl" status working "$agent running" >/dev/null 2>&1 || true
     set +e
     "$real" "$@"
