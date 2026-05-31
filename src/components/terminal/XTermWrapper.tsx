@@ -76,7 +76,15 @@ const DEFAULT_THEME: ITheme = {
 
 function isPaneZoomKey(e: KeyboardEvent): 1 | -1 | 0 {
   if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return 0;
-  if (e.key === "+" || e.key === "=" || e.code === "Equal" || e.code === "NumpadAdd") return 1;
+  if (
+    e.key === "+" ||
+    e.key === "=" ||
+    e.key === "*" ||
+    e.code === "Equal" ||
+    e.code === "BracketRight" ||
+    e.code === "NumpadAdd" ||
+    e.code === "NumpadMultiply"
+  ) return 1;
   if (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract") return -1;
   return 0;
 }

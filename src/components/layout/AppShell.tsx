@@ -197,7 +197,15 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
 
       const isPaneZoomIn =
         e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
-        (e.key === "+" || e.key === "=" || e.code === "Equal" || e.code === "NumpadAdd");
+        (
+          e.key === "+" ||
+          e.key === "=" ||
+          e.key === "*" ||
+          e.code === "Equal" ||
+          e.code === "BracketRight" ||
+          e.code === "NumpadAdd" ||
+          e.code === "NumpadMultiply"
+        );
       const isPaneZoomOut =
         e.ctrlKey && e.shiftKey && !e.altKey && !e.metaKey &&
         (e.key === "-" || e.key === "_" || e.code === "Minus" || e.code === "NumpadSubtract");
