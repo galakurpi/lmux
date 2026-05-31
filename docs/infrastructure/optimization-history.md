@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Successfully optimized **ptrterminal** to achieve native-feeling workspace switching performance by:
+Successfully optimized **lmux** to achieve native-feeling workspace switching performance by:
 1. ✅ Splitting monolithic store into 4 focused stores (393 → 168 lines facade + 4 small stores)
 2. ✅ Adding React.memo to critical render paths
 3. ✅ Fixing all TypeScript type safety issues (25+ files)

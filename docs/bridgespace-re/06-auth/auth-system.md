@@ -65,9 +65,9 @@ https://app.bridgemind.ai    ← allowed for auth pages embedded in WebView
 All other `https://` origins are blocked — the app cannot make arbitrary web requests
 from the frontend.
 
-## Implications for ptrcode
+## Implications for lmux
 
-ptrcode is **open source** and will not have a commercial auth backend. However:
-- If ptrcode ever adds cloud sync or team features, same OAuth2 + deep-link approach applies
-- For local-only use: no auth needed (current ptrterminal model)
+lmux is **open source** and will not have a commercial auth backend. However:
+- If lmux ever adds cloud sync or team features, same OAuth2 + deep-link approach applies
+- For local-only use: no auth needed (current lmux model)
 - For commercial version: replicate this exact flow with `tauri-plugin-deep-link` + custom backend

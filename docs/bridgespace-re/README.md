@@ -1,7 +1,7 @@
 # BridgeSpace Reverse Engineering Findings
 
 Organized findings from binary analysis of BridgeSpace v2.2.2 across all three platform releases.
-This research informs the ptrcode architecture and competitive strategy.
+This research informs the lmux architecture and competitive strategy.
 
 ## Scope
 
@@ -38,4 +38,4 @@ BridgeSpace version: **2.2.2** | Bundle ID: `io.bridgemind.bridgespace`
 | 06 | [auth-system.md](06-auth/auth-system.md) | OAuth2, fingerprinting, encryption |
 | 07 | [voice-system.md](07-voice/voice-system.md) | BridgeVoice, Whisper.cpp |
 | 08 | [network-layer.md](08-network/network-layer.md) | HTTP/WebSocket stack, port 7242 |
-| 09 | [ptrcode-gaps.md](09-competitive/ptrcode-gaps.md) | Gap analysis and ptrcode build order |
+| 09 | [lmux-gaps.md](09-competitive/lmux-gaps.md) | Gap analysis and lmux build order |

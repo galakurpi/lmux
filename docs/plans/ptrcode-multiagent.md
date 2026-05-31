@@ -1,8 +1,8 @@
-# ptrcode — Multi-Agent Architecture Plan
+# lmux — Multi-Agent Architecture Plan
 
 **Date**: 2026-03-20
 **Status**: Design (pre-implementation)
-**Product**: ptrcode (rename of ptrterminal)
+**Product**: lmux (rename of lmux)
 
 ---
 
@@ -12,8 +12,8 @@ Two embedded modes in a single cross-platform desktop app:
 
 | Mode | Name | What it does |
 |------|------|--------------|
-| **Workspace** | ptrcode Workspace | Terminal multiplexer — split panes, browser pane, full control. Equivalent to BridgeSpace. |
-| **Swarm** | ptrcode Swarm | Fully delegated multi-agent execution — you give the goal, agents coordinate and ship. Equivalent to BridgeSwarm. |
+| **Workspace** | lmux Workspace | Terminal multiplexer — split panes, browser pane, full control. Equivalent to BridgeSpace. |
+| **Swarm** | lmux Swarm | Fully delegated multi-agent execution — you give the goal, agents coordinate and ship. Equivalent to BridgeSwarm. |
 
 Target market: Brazilian developers. No localized competitor exists.
 
@@ -126,10 +126,10 @@ Workspace mode works on macOS/Windows with "open in system browser" fallback. Fu
 - `stores/swarmStore.ts` — Swarm state (agents, messages, status)
 - `lib/swarmTemplates.ts` — Role-specific CLAUDE.md/GEMINI.md templates
 
-**CLI tool (`ptrcode-mail`)**:
-- Small standalone binary installed to `~/.local/bin/ptrcode-mail` (or `~/AppData/Local/ptrcode/ptrcode-mail.exe`)
-- Agents call: `ptrcode-mail send @coordinator "message"`
-- Connects to `~/.ptrcode/ptr.sock`, sends JSON, gets ack
+**CLI tool (`lmux-mail`)**:
+- Small standalone binary installed to `~/.local/bin/lmux-mail` (or `~/AppData/Local/lmux/lmux-mail.exe`)
+- Agents call: `lmux-mail send @coordinator "message"`
+- Connects to `~/.lmux/ptr.sock`, sends JSON, gets ack
 - Must be installed as part of app setup
 
 ### SWARM_BOARD.md format
@@ -172,14 +172,14 @@ Workspace mode works on macOS/Windows with "open in system browser" fallback. Fu
 ## Coordination
 - Check SWARM_BOARD.md before starting any task
 - Update your section in SWARM_BOARD.md when you complete tasks
-- Use `ptrcode-mail send @coordinator "message"` to report progress
-- Use `ptrcode-mail send @all "message"` to broadcast
+- Use `lmux-mail send @coordinator "message"` to report progress
+- Use `lmux-mail send @all "message"` to broadcast
 
 ## Instructions
 1. Read SWARM_BOARD.md to see your assigned tasks
 2. Implement your assigned task
 3. Update SWARM_BOARD.md → Builders → Builder {{agent_number}} section
-4. Run `ptrcode-mail send @coordinator "Builder {{agent_number}} done: [summary]"`
+4. Run `lmux-mail send @coordinator "Builder {{agent_number}} done: [summary]"`
 
 ## IMPORTANT
 - Do not work outside your assigned task
@@ -195,7 +195,7 @@ On launch or new workspace: show mode picker (like BridgeSpace):
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              ptrcode                             │
+│              lmux                             │
 │         Build the future.                       │
 │                                                  │
 │  ┌──────────────────┐  ┌──────────────────────┐ │
@@ -212,22 +212,22 @@ On launch or new workspace: show mode picker (like BridgeSpace):
 
 ## Build Order
 
-1. **Rebrand**: rename `ptrterminal` → `ptrcode` (package.json, tauri.conf.json, socket path, binary name)
+1. **Rebrand**: rename `lmux` → `lmux` (package.json, tauri.conf.json, socket path, binary name)
 2. **Swarm wizard UI** — 5-step creation flow (no backend yet, just UI)
 3. **SWARM_BOARD.md generator** — Rust: write/read board file
-4. **`ptrcode-mail` CLI** — small Rust binary, connects to socket, sends JSON message
+4. **`lmux-mail` CLI** — small Rust binary, connects to socket, sends JSON message
 5. **Socket → console relay** — extend socket.rs to support named channels (swarm messages)
 6. **Role template injection** — write CLAUDE.md/GEMINI.md on swarm launch
 7. **Swarm dashboard** — canvas + console panel
 8. **Agent status parsing** — already partially done (agentStatus in metadata store)
 9. **Cross-platform compile** — add `#[cfg]` guards around GTK code, test macOS/Windows builds
-10. **ptrcode-mail installer** — include binary in app bundle, install to PATH on first run
+10. **lmux-mail installer** — include binary in app bundle, install to PATH on first run
 
 ---
 
 ## Competitive Position vs BridgeSpace
 
-| Feature | BridgeSpace | ptrcode |
+| Feature | BridgeSpace | lmux |
 |---------|------------|---------|
 | Workspace mode | ✅ macOS-first | ✅ Linux-first |
 | Swarm mode | ✅ Commercial | 🔨 Building |

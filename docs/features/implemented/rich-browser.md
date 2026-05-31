@@ -6,7 +6,7 @@ Upgrade the current iframe-based browser pane to a full embedded browser with pr
 
 ## Current State
 
-ptrterminal has a basic `BrowserPane.tsx` using an iframe with URL bar. Limitations:
+lmux has a basic `BrowserPane.tsx` using an iframe with URL bar. Limitations:
 - No navigation history (back/forward)
 - No DevTools
 - iframe sandbox restrictions block many sites
@@ -20,7 +20,7 @@ ptrterminal has a basic `BrowserPane.tsx` using an iframe with URL bar. Limitati
 - Search engine integration (address bar doubles as search)
 - Per-workspace browser profiles with isolated storage
 
-## ptrterminal Requirements
+## lmux Requirements
 
 | Layer | What's Needed |
 |-------|---------------|

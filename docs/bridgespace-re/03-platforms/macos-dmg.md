@@ -74,9 +74,9 @@ BridgeSpace.app/
 │       └── CodeResources
 ```
 
-## Notes for ptrcode macOS Port
+## Notes for lmux macOS Port
 
-- ptrcode would need `WKWebView` + `NSView` embedding for the browser pane (currently only GTK)
+- lmux would need `WKWebView` + `NSView` embedding for the browser pane (currently only GTK)
 - The wry crate handles this automatically — the `BrowserManager` GTK-specific code needs
   `#[cfg(target_os = "linux")]` guards with a wry-native fallback for macOS/Windows
 - arm64 + x86-64 universal binary would be ideal but arm64-only is acceptable initially

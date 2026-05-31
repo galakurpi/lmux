@@ -23,7 +23,7 @@ Opening a new Tauri window resets all existing terminals to `~`, losing their se
 - `src/hooks/useWorkspacePersist.ts` — Leader-aware bootstrap and save logic
 
 ## Acceptance Criteria
-- [x] Open ptrterminal, create workspaces, cd to various dirs
+- [x] Open lmux, create workspaces, cd to various dirs
 - [ ] Open second window — existing terminals keep their sessions and CWDs
 - [ ] Close second window — first window unaffected
 - [ ] Close leader window, reopen — persisted state restores correctly

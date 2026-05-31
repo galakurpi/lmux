@@ -2,7 +2,7 @@
 
 ## Overview
 
-On startup, `terminal_config.rs` reads the user's native terminal configuration to match font family, font size, and color palette. This makes ptrterminal look like the user's existing terminal.
+On startup, `terminal_config.rs` reads the user's native terminal configuration to match font family, font size, and color palette. This makes lmux look like the user's existing terminal.
 
 ## Detection Order
 

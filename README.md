@@ -1,112 +1,89 @@
-# ptrcode
+# Cmux for Linux
 
-A cross-platform AI agent terminal workspace. Built with Tauri v2, React, and xterm.js. Inspired by [cmux](https://github.com/manaflow-ai/cmux) (macOS).
+`lmux` is a Linux-first, cmux-inspired terminal workspace specialized for
+managing multiple AI coding agents side by side.
 
-## Why I built this
+The goal is not to clone cmux line by line. Original cmux is a native macOS app
+built on Swift, AppKit, and libghostty. `lmux` takes the more hackable Linux and
+cross-platform route: Tauri, React, xterm.js, and Rust.
 
-My first idea was to just add Linux support for cmux directly, but after reading the PRs from their repo, I realized that if they really want to add support, they will eventually.
+## Status
 
-And that's where this project comes to life! I wanted to create something inspired by cmux that runs on Linux, macOS, and Windows. I know Linux has tmux which is actually great, however the UI/UX from cmux has me fallen in love.
+Early side project. It is usable as a development base, but not yet something to
+trust as a daily driver without rough edges.
 
-This project is open source. I have plans and more features for the future — especially multi-agent coordination workflows.
+Current focus:
 
-ptrcode is built to bring a fast, keyboard-first terminal workspace experience to all platforms with a native desktop app feel. The goal is to make multi-pane, multi-workspace development smooth without forcing users into a browser-only workflow or heavy IDE.
-
-## Project direction
-
-- **Near term**: stable cross-platform releases with easy install paths
-- **Product quality**: stronger polish in interaction, performance, and accessibility
-- **Power features**: multi-agent swarm coordination (ptrcode's key differentiator)
-- **Distribution**: broader packaging options after core release flow is stable
+- reliable workspaces and split panes for parallel agent sessions
+- solid terminal behavior through `portable-pty` and xterm.js
+- agent status indicators for Claude Code, Codex, Gemini CLI, Aider, and shells
+- browser panes for local app testing
+- socket/CLI automation so agents can drive the workspace
+- Linux packages first, with macOS and Windows kept possible
 
 ## Features
 
-- **Workspaces**: Organize terminals into separate workspaces with quick switching
-- **Flexible Pane Layouts**: Split panes horizontally and vertically with resizable dividers
-- **Position-Based Navigation**: Navigate between panes using arrow keys based on actual screen position
-- **Command Palette**: Quick access to all commands via fuzzy search
-- **Customizable Keybindings**: Remap any shortcut to your preference
-- **Persistent State**: Workspaces and layouts are saved across sessions
-- **Cross-platform**: Linux, macOS, and Windows
+- **Agent workspaces**: organize AI coding agents by project or task
+- **Split panes**: horizontal and vertical layouts with resizable dividers
+- **Agent presets**: launch common CLI agents from pane setup
+- **Status visualization**: highlight panes that are working, waiting, or done
+- **Command palette**: keyboard-first access to common actions
+- **Custom keybindings**: remap shortcuts from the app
+- **Persistent layout**: restore saved workspace structure across launches
+- **Browser pane**: open web pages beside terminals for app testing
+- **Socket API**: local automation surface for scripts and agents
 
-## Installation
+## Tech Stack
 
-### Quick Install (Recommended)
+- **Desktop shell**: Tauri v2
+- **Frontend**: React 19, TypeScript, Vite
+- **Terminal**: xterm.js with WebGL renderer
+- **Backend**: Rust
+- **PTY**: portable-pty
+- **Layout/state**: Allotment, Zustand, Immer
+- **Browser embedding**: wry / WebKitGTK on Linux
 
-Download artifacts from the latest release:
+## Build From Source
 
-<https://github.com/cai0baa/ptrcode/releases/latest>
+### Prerequisites
 
-#### AppImage (Linux, works on most distros)
+- Rust, latest stable
+- Node.js 18+
+- Linux system packages:
 
 ```bash
-gh release download --repo cai0baa/ptrcode --pattern "*.AppImage"
-chmod +x ./*.AppImage
-./*.AppImage
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev
 ```
 
-#### Debian/Ubuntu (.deb)
+For Fedora:
 
 ```bash
-gh release download --repo cai0baa/ptrcode --pattern "*.deb"
-sudo apt install ./*.deb
+sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel gtk3-devel
 ```
 
-#### macOS (.dmg)
+For Arch:
 
 ```bash
-gh release download --repo cai0baa/ptrcode --pattern "*.dmg"
+sudo pacman -S webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg gtk3
 ```
 
-Open the `.dmg` and drag ptrcode to Applications.
-
-> **macOS Security Warning**: Because ptrcode is not yet notarized with Apple, macOS will show an "unverified developer" warning on first open. To bypass: right-click the app → **Open** → Open. Or from Terminal: `xattr -d com.apple.quarantine /Applications/ptrcode.app`
-
-#### Windows (.zip portable or NSIS installer)
+### Run
 
 ```bash
-gh release download --repo cai0baa/ptrcode --pattern "*.zip"
-```
-
-Extract and run `ptrcode.exe`.
-
-> **Windows Security Warning**: Because ptrcode is not yet code-signed with an Authenticode certificate, Windows SmartScreen will warn "Windows protected your PC". Click **More info** → **Run anyway** to proceed.
-
-### Build from Source
-
-#### Prerequisites
-
-- [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) (v18+)
-- System dependencies:
-
-  ```bash
-  # Debian/Ubuntu
-  sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
-
-  # Fedora
-  sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel
-
-  # Arch
-  sudo pacman -S webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg
-
-  # macOS — install Xcode Command Line Tools
-  xcode-select --install
-
-  # Windows — install Visual Studio Build Tools with C++ workload
-  ```
-
-```bash
-git clone https://github.com/cai0baa/ptrcode.git
-cd ptrcode
+git clone https://github.com/galakurpi/lmux.git
+cd lmux
 npm install
-npm run tauri dev       # development
-npm run tauri build     # production build
+npm run tauri dev
+```
+
+### Build
+
+```bash
+npm run build
+npm run tauri build
 ```
 
 ## Keyboard Shortcuts
-
-All shortcuts use Ctrl-based modifiers.
 
 ### Global
 
@@ -144,19 +121,20 @@ All shortcuts use Ctrl-based modifiers.
 |----------|--------|
 | `Ctrl+Shift+F` | Find in terminal |
 
-## Architecture
+## Roadmap
 
-- **Frontend**: React 19 + TypeScript + Vite
-- **Backend**: Tauri v2 (Rust)
-- **Terminal**: xterm.js with WebGL renderer
-- **State Management**: Zustand with Immer
-- **Layout**: Allotment (split panes)
+The current quality target is documented in
+[`docs/plans/cmux-quality-roadmap.md`](docs/plans/cmux-quality-roadmap.md).
+
+In short: make the terminal boring and reliable first, then deepen the agent
+workflow until it becomes meaningfully better than juggling separate terminal
+windows.
+
+## Credits
+
+This project started from `cai0baa/cmux-for-linux` and is inspired by
+ManaFlow's cmux.
 
 ## License
 
-GPL v3 - See [LICENSE](LICENSE) for details.
-
-## Acknowledgments
-
-- Inspired by [cmux](https://github.com/manaflow-ai/cmux) from ManaFlow
-- Built with [Tauri](https://tauri.app/), [xterm.js](https://xtermjs.org/), and [React](https://react.dev/)
+GPL v3. See [LICENSE](LICENSE).

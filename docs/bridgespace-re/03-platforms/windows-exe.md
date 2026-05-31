@@ -65,9 +65,9 @@ logic is in the main `bridgespace-tauri.exe` binary and dynamically loaded confi
 4. Register `bridgespace://` URL scheme for OAuth deep links
 5. Optionally install Visual C++ redistributables
 
-## Notes for ptrcode Windows Port
+## Notes for lmux Windows Port
 
-- ptrcode would need WebView2 for the browser pane on Windows
+- lmux would need WebView2 for the browser pane on Windows
 - The wry crate handles WebView2 integration automatically
 - Current GTK-specific `BrowserManager` code needs `#[cfg]` guards
 - Socket API: replace Unix domain socket with Windows named pipes or keep TCP (port-based)

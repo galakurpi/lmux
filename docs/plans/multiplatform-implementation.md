@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This plan details how to extend ptrterminal (CMux Linux) from Linux-only to full Windows/macOS support, with native browser pane embedding on all three platforms. The approach follows BridgeSpace's proven architecture: **Tauri v2 + wry cross-platform WebView abstraction**.
+This plan details how to extend lmux (CMux Linux) from Linux-only to full Windows/macOS support, with native browser pane embedding on all three platforms. The approach follows BridgeSpace's proven architecture: **Tauri v2 + wry cross-platform WebView abstraction**.
 
 ### Key Decisions
 - **Stay on Tauri** (not Electron) — smaller binary, lower memory, same stack as BridgeSpace

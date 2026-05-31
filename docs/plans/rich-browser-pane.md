@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Tauri v2 supports embedding child webviews inside an existing window via `Window::add_child()` with `WebviewBuilder`. This is the correct path for upgrading ptrterminal's BrowserPane from an iframe to a native webview. The feature requires the `unstable` Cargo feature flag and has known positioning/resizing bugs that are actively being worked on. Navigation (back/forward) is NOT natively exposed by Tauri's high-level API and must be implemented via `evaluate_script("history.back()")` calls. The approach is viable but requires careful handling of platform differences and the unstable API surface.
+Tauri v2 supports embedding child webviews inside an existing window via `Window::add_child()` with `WebviewBuilder`. This is the correct path for upgrading lmux's BrowserPane from an iframe to a native webview. The feature requires the `unstable` Cargo feature flag and has known positioning/resizing bugs that are actively being worked on. Navigation (back/forward) is NOT natively exposed by Tauri's high-level API and must be implemented via `evaluate_script("history.back()")` calls. The approach is viable but requires careful handling of platform differences and the unstable API surface.
 
 ---
 
@@ -97,9 +97,9 @@ The `.auto_resize()` builder method makes the webview automatically resize propo
 - **Issue #10420**: Broken positioning in the multiwebview example, webviews render stacked vertically instead of in designated positions
 - **Issue #11170**: After maximizing and restoring a window, child webview positions do not return to their initial locations
 
-### Recommended Approach for ptrterminal
+### Recommended Approach for lmux
 
-Since ptrterminal has a dynamic split-pane layout, do NOT rely on `auto_resize()`. Instead:
+Since lmux has a dynamic split-pane layout, do NOT rely on `auto_resize()`. Instead:
 
 1. Disable auto-resize
 2. Listen for layout changes from the React side
@@ -225,7 +225,7 @@ WebviewBuilder::new("browser-pane", WebviewUrl::External(url))
 
 ### Linux/Wayland Warning
 
-The wry documentation states that `WebView::new_as_child` (which backs `add_child`) is "supported on macOS, Windows and Linux (X11 Only)". Since ptrterminal targets Arch Linux (which defaults to Wayland), this is a significant concern. Testing on both X11 and Wayland is essential.
+The wry documentation states that `WebView::new_as_child` (which backs `add_child`) is "supported on macOS, Windows and Linux (X11 Only)". Since lmux targets Arch Linux (which defaults to Wayland), this is a significant concern. Testing on both X11 and Wayland is essential.
 
 ---
 
@@ -291,7 +291,7 @@ The wry documentation states that `WebView::new_as_child` (which backs `add_chil
 
 ### Recommendation
 
-**Option A (Native Child Webview)** is the right choice for ptrterminal. The iframe approach (Option B) fundamentally cannot work for a real browser experience because most websites block iframe embedding via X-Frame-Options. The unstable API risks are acceptable for a non-App Store desktop application.
+**Option A (Native Child Webview)** is the right choice for lmux. The iframe approach (Option B) fundamentally cannot work for a real browser experience because most websites block iframe embedding via X-Frame-Options. The unstable API risks are acceptable for a non-App Store desktop application.
 
 ---
 

@@ -8,5 +8,5 @@ fn main() {
     #[cfg(target_os = "linux")]
     std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
 
-    ptrterminal_lib::run()
+    lmux_lib::run()
 }

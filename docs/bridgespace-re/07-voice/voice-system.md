@@ -54,7 +54,7 @@ separate download). This suggests:
 - Integration is likely via a local IPC channel (possibly port 7242 service extension or
   a separate socket)
 
-## ptrcode Equivalent
+## lmux Equivalent
 
 **`ptr-voice`** — future feature, not in initial scope.
 

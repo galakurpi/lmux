@@ -2,7 +2,7 @@
 
 ## Philosophy
 
-ptrterminal is a dark-first, keyboard-centric terminal workspace. The UI should feel like a native terminal emulator that happens to have workspace management — not a web app pretending to be one.
+lmux is a dark-first, keyboard-centric terminal workspace. The UI should feel like a native terminal emulator that happens to have workspace management — not a web app pretending to be one.
 
 **Principles:**
 - **Terminal first**: The terminal viewport gets maximum space; chrome is minimal

@@ -50,9 +50,9 @@ All three platforms had identical bundle names, confirming a single shared front
 4. **Agents are first-class objects** — dedicated `/agents` page for viewing/managing agent sessions
 5. **Welcome/onboarding exists** — `WelcomeScreen` chunk implies a first-run flow with setup steps
 
-## Comparison to ptrcode Frontend Plan
+## Comparison to lmux Frontend Plan
 
-| BridgeSpace Page | ptrcode equivalent | Priority |
+| BridgeSpace Page | lmux equivalent | Priority |
 |-----------------|-------------------|---------|
 | AgentsPage | Sidebar agent status + Swarm dashboard | High |
 | RunTaskModal | "New Swarm" wizard dialog | High |

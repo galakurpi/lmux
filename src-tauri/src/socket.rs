@@ -100,7 +100,7 @@ async fn handle_connection(
 /// Get the path to the port file for socket discovery
 fn get_port_file_path() -> std::path::PathBuf {
     let mut path = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
-    path.push(".ptrterminal");
+    path.push(".lmux");
     std::fs::create_dir_all(&path).ok();
     path.push("ptr.port");
     path
@@ -109,7 +109,7 @@ fn get_port_file_path() -> std::path::PathBuf {
 /// Clean up old Unix socket file if it exists (for migration from old versions)
 fn cleanup_legacy_socket() {
     let mut socket_path = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
-    socket_path.push(".ptrterminal");
+    socket_path.push(".lmux");
     socket_path.push("ptr.sock");
     let _ = std::fs::remove_file(&socket_path);
 }

@@ -35,7 +35,7 @@ WebGL addon includes context loss recovery — disposes and falls back on `onCon
 - **Binary streaming**: Tauri `Channel<Vec<u8>>` delivers `ArrayBuffer` directly to JS
 - **Reader thread**: OS thread (not tokio), 4KB blocking reads
 - **Writer**: `term.onData()` and `term.onBinary()` → `writeToSession()` invoke
-- **Environment**: `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=ptrterminal`
+- **Environment**: `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=lmux`
 
 ## Resize Handling
 

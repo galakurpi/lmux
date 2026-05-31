@@ -10,7 +10,7 @@ In-terminal text search with regex support, match highlighting, and wrap-around 
 - Keyboard: `Ctrl+Shift+F` to open, `Enter`/`Shift+Enter` to navigate matches
 - Matches highlighted in scrollback buffer via xterm.js search addon
 
-### ptrterminal Requirements
+### lmux Requirements
 
 | Layer | What's Needed |
 |-------|---------------|
@@ -34,7 +34,7 @@ Global fuzzy-search overlay for all actions: workspace switching, theme changes,
 - Fuzzy matching with ranked results
 - Recent actions pinned to top
 
-### ptrterminal Requirements
+### lmux Requirements
 
 | Layer | What's Needed |
 |-------|---------------|

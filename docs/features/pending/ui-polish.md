@@ -89,7 +89,7 @@ Restore full workspace layout, pane positions, and running processes on app rest
 | Detail | Description |
 |--------|-------------|
 | cmux | Full geometry + workspace + surface persistence, process re-spawn on launch |
-| Current | ptrterminal persists workspace structure but not window geometry or process state |
+| Current | lmux persists workspace structure but not window geometry or process state |
 | Needs | Window position/size persistence via Tauri window APIs |
 | Needs | Process CWD capture and restore (re-`cd` on spawn) |
 | Needs | Optional: restore scroll position and recent output |

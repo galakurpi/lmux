@@ -1,4 +1,4 @@
-# ptrterminal Roadmap — Honest State Assessment
+# lmux Roadmap — Honest State Assessment
 
 **Date**: 2026-03-20
 **Status**: Active
@@ -48,9 +48,9 @@
 
 ## Competitive Context (Why These Items)
 
-ptrterminal's unique position on Linux (open-source, wry browser with privileged JS eval, socket API for agent automation) maps to these differentiators that nobody else has open-source on Linux:
+lmux's unique position on Linux (open-source, wry browser with privileged JS eval, socket API for agent automation) maps to these differentiators that nobody else has open-source on Linux:
 
-- **Agent workspace isolation** via git worktrees (dmux does this with scripts; ptrterminal can do it natively with visual branch status)
+- **Agent workspace isolation** via git worktrees (dmux does this with scripts; lmux can do it natively with visual branch status)
 - **Real-time agent observability** — status badges are the first step; port scanner + actionable notifications close the loop
 - **Browser pane → agent feedback loop** — agents can navigate to `localhost:3000`, snapshot what rendered, report back. The primitives exist; the workflow needs to be discoverable.
 - **Agent conversation persistence** — OpenCode's main moat. Nobody else does it on Linux open-source.

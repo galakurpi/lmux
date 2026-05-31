@@ -45,7 +45,7 @@ impl PtySession {
         cmd.args(args);
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
-        cmd.env("TERM_PROGRAM", "ptrterminal");
+        cmd.env("TERM_PROGRAM", "lmux");
         cmd.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
 
         if let Some(dir) = cwd {

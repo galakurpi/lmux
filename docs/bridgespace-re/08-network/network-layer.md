@@ -17,7 +17,7 @@ crates pulled different versions, and Cargo included both (common in large Rust 
 
 ## Local Coordination Service (Port 7242)
 
-The most important network component for ptrcode replication.
+The most important network component for lmux replication.
 
 ### Binding
 
@@ -77,9 +77,9 @@ BridgeSpace uses **rustls** instead of OpenSSL:
 Binary analysis found no external WebSocket endpoints — all WebSocket usage is the local
 `127.0.0.1:7242` service. External API calls are standard HTTPS request/response.
 
-## ptrcode Network Plan
+## lmux Network Plan
 
-For ptrcode's `ptrd` daemon (equivalent to port 7242 service):
+For lmux's `ptrd` daemon (equivalent to port 7242 service):
 
 ```toml
 # Cargo.toml additions

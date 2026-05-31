@@ -1,6 +1,6 @@
 # Code Signing Guide
 
-ptrcode v0.1.3 ships unsigned binaries. This causes OS security warnings on macOS and Windows. This document explains the current workarounds and the path to proper signing.
+lmux v0.1.3 ships unsigned binaries. This causes OS security warnings on macOS and Windows. This document explains the current workarounds and the path to proper signing.
 
 ---
 
@@ -19,12 +19,12 @@ ptrcode v0.1.3 ships unsigned binaries. This causes OS security warnings on macO
 ### macOS
 
 Option 1 — right-click menu:
-1. Right-click `ptrcode.app` → **Open**
+1. Right-click `lmux.app` → **Open**
 2. Click **Open** in the dialog
 
 Option 2 — terminal (removes quarantine flag):
 ```bash
-xattr -d com.apple.quarantine /Applications/ptrcode.app
+xattr -d com.apple.quarantine /Applications/lmux.app
 ```
 
 ### Windows

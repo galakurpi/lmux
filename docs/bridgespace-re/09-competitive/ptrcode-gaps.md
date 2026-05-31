@@ -1,10 +1,10 @@
-# ptrcode vs BridgeSpace — Gap Analysis
+# lmux vs BridgeSpace — Gap Analysis
 
 _Last updated: 2026-03-23 — reflects v0.1.3 multiplatform release (Linux + macOS + Windows)._
 
 ## Feature Parity Matrix
 
-| Feature | BridgeSpace | ptrcode | Priority |
+| Feature | BridgeSpace | lmux | Priority |
 |---------|-------------|---------|---------|
 | Multi-pane terminal | ✅ Full | ✅ Full | Done |
 | Browser pane (native WebView) | ✅ All platforms | ✅ Linux only | High |
@@ -27,19 +27,19 @@ _Last updated: 2026-03-23 — reflects v0.1.3 multiplatform release (Linux + mac
 | Session restore | ❌ Unknown | ❌ Pending | Medium |
 | Port scanner | ❌ Unknown | ❌ Pending | Medium |
 
-## ptrcode Differentiators (Advantages Over BridgeSpace)
+## lmux Differentiators (Advantages Over BridgeSpace)
 
 | Advantage | Details |
 |-----------|---------|
-| **Open source** | BridgeSpace is closed-source. ptrcode will be MIT licensed. |
-| **No subscription** | BridgeSpace requires paid account. ptrcode is free. |
+| **Open source** | BridgeSpace is closed-source. lmux will be MIT licensed. |
+| **No subscription** | BridgeSpace requires paid account. lmux is free. |
 | **Agent-agnostic** | `ptr-mail` works with Claude Code, Gemini CLI, GPT-4o, any LLM CLI |
-| **Linux-first quality** | BridgeSpace's Linux version is secondary. ptrcode leads on Linux. |
+| **Linux-first quality** | BridgeSpace's Linux version is secondary. lmux leads on Linux. |
 | **Brazilian market** | Portuguese UI, local community, BRL pricing if monetized |
 | **Simpler architecture** | No commercial backend required — fully local swarm |
 | **Inspectable protocol** | SWARM_BOARD.md is plain markdown — users can read/edit state |
 
-## Recommended Build Order for ptrcode
+## Recommended Build Order for lmux
 
 ### Phase 1: Cross-Platform Foundation (prerequisite for everything)
 1. Add `#[cfg(target_os = "linux")]` guards around all GTK/webkit2gtk code in `BrowserManager`
@@ -74,7 +74,7 @@ _Last updated: 2026-03-23 — reflects v0.1.3 multiplatform release (Linux + mac
 ## Why Not Copy Everything
 
 BridgeSpace features **not worth replicating**:
-- **OAuth2 + commercial backend**: ptrcode is open source — no subscription model needed
+- **OAuth2 + commercial backend**: lmux is open source — no subscription model needed
 - **Device fingerprinting**: invasive, no place in an open-source tool
 - **Kanban board**: nice to have, not differentiating — GitHub Projects serves this need
 - **Skills page**: low priority — users can manage prompts in files
@@ -83,7 +83,7 @@ BridgeSpace features **not worth replicating**:
 
 ```
 BridgeSpace: "Professional AI terminal for teams" — macOS-primary, paid, closed
-ptrcode:     "Open multi-agent workspace" — Linux-primary, free, open source
+lmux:     "Open multi-agent workspace" — Linux-primary, free, open source
 
 Target user: Brazilian developer running 2-4 Claude Code/Gemini agents on a Linux machine,
              wants to coordinate them without paying $X/month for a macOS-first closed tool.

@@ -36,7 +36,7 @@ pub struct PtySession {
 
 Methods: `spawn()`, `write()`, `resize()`, `kill()`, `process_id()`
 
-- Sets `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=ptrterminal`
+- Sets `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=lmux`
 - Reader thread: blocking `read()` in 4KB chunks, sends via `Channel<Vec<u8>>`
 - Emits `pty-exit-{session_id}` event when reader exits
 

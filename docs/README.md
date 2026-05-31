@@ -1,4 +1,4 @@
-# ptrterminal Documentation
+# Cmux for Linux Documentation
 
 AI agent terminal workspace built with Tauri v2 + React + xterm.js.
 
@@ -35,7 +35,7 @@ AI agent terminal workspace built with Tauri v2 + React + xterm.js.
 
 ### Research & Competitive Analysis
 - [bridgespace-re/README.md](bridgespace-re/README.md) — BridgeSpace reverse engineering findings (stack, architecture, swarm protocol, auth, voice, network)
-- [bridgespace-re/09-competitive/ptrcode-gaps.md](bridgespace-re/09-competitive/ptrcode-gaps.md) — Feature gap analysis and recommended build order for ptrcode
+- [bridgespace-re/09-competitive/lmux-gaps.md](bridgespace-re/09-competitive/lmux-gaps.md) — Feature gap analysis and recommended build order for lmux
 
 ### Features — Pending (from cmux reference)
 - [ssh-remote-sessions.md](features/pending/ssh-remote-sessions.md) — SSH daemon, reconnect, port forwarding

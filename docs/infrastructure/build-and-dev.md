@@ -33,15 +33,15 @@
 
 ```json
 {
-  "productName": "ptrterminal",
-  "identifier": "com.ptrterminal.app",
+  "productName": "lmux",
+  "identifier": "com.lmux.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },
   "app": {
     "windows": [{
-      "title": "ptrterminal",
+      "title": "lmux",
       "width": 1200,
       "height": 800,
       "decorations": false
@@ -70,8 +70,8 @@ Key decisions:
 ```
 dist/                    — Vite output (JS/CSS/HTML)
 src-tauri/target/
-  debug/ptrterminal      — Dev build binary
-  release/ptrterminal    — Release binary
+  debug/lmux      — Dev build binary
+  release/lmux    — Release binary
   release/bundle/        — Platform-specific bundles (.deb, .AppImage, etc.)
 ```
 
@@ -86,7 +86,7 @@ src-tauri/target/
 
 ```toml
 [lib]
-name = "ptrterminal_lib"
+name = "lmux_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 ```
 

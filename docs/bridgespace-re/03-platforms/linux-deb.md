@@ -19,7 +19,7 @@
 - Uses **webkit2gtk** (system package dependency)
 - **GTK overlay** technique for browser pane embedding: a `GtkOverlay` widget sits on top of the
   main Tauri window, and the WebView for the browser pane is embedded as a GTK child widget
-- This is the same approach ptrterminal uses for its browser pane
+- This is the same approach lmux uses for its browser pane
 - Implication: the browser pane on Linux is a true native WebKit instance — full rendering fidelity
 
 ## Package Contents
@@ -35,11 +35,11 @@ Standard Tauri Linux bundle layout:
 ## GTK-Specific Dependencies
 
 webkit2gtk and GTK are runtime dependencies — not bundled. The app assumes a standard GNOME/GTK
-desktop environment. This is the same assumption ptrterminal makes.
+desktop environment. This is the same assumption lmux makes.
 
-## Baseline Comparison with ptrterminal
+## Baseline Comparison with lmux
 
-| Feature | BridgeSpace Linux | ptrterminal |
+| Feature | BridgeSpace Linux | lmux |
 |---------|------------------|-------------|
 | PTY | portable-pty 0.8.1 | portable-pty (same version range) |
 | WebView | webkit2gtk | webkit2gtk |
@@ -47,4 +47,4 @@ desktop environment. This is the same assumption ptrterminal makes.
 | Socket API | port 7242 (HTTP) | Unix domain socket (`ptr.sock`) |
 | Build targets | .deb + .AppImage | .deb + .AppImage |
 
-The Linux implementation is architecturally identical to ptrterminal at the platform layer.
+The Linux implementation is architecturally identical to lmux at the platform layer.

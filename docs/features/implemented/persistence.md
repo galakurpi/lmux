@@ -4,7 +4,7 @@
 
 `$APP_DATA_DIR/data.json` — resolved via Tauri's `app_data_dir()`.
 
-On Linux: `~/.local/share/com.ptrterminal.app/data.json`
+On Linux: `~/.local/share/com.lmux.app/data.json`
 
 ## Data Shape
 

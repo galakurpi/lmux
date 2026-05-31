@@ -2691,7 +2691,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ptrterminal"
+name = "lmux"
 version = "0.1.3"
 dependencies = [
  "cocoa",

@@ -1,6 +1,6 @@
 # BridgeSwarm Multi-Agent Protocol
 
-**This is the highest-value finding for ptrcode implementation.**
+**This is the highest-value finding for lmux implementation.**
 
 ## Protocol Summary
 
@@ -57,7 +57,7 @@ bs-mail watch                    # stream incoming messages
 **Implementation**: Almost certainly a thin wrapper around the port 7242 WebSocket API.
 The CLI connects to the local service, sends/receives messages, and formats them for terminal display.
 
-**ptrcode equivalent**: `ptr-mail` — same interface, connects to `ptrd` daemon.
+**lmux equivalent**: `ptr-mail` — same interface, connects to `ptrd` daemon.
 
 ## Component 3: Port 7242 Local Service
 
@@ -127,9 +127,9 @@ This confirms the swarm configuration is loaded dynamically at runtime from:
 The binary only contains the coordination infrastructure — the actual role definitions and
 task content are runtime artifacts.
 
-## ptrcode Implementation Mapping
+## lmux Implementation Mapping
 
-| BridgeSpace | ptrcode equivalent | Status |
+| BridgeSpace | lmux equivalent | Status |
 |-------------|-------------------|--------|
 | `SWARM_BOARD.md` | `SWARM_BOARD.md` (identical) | Planned |
 | `bs-mail` CLI | `ptr-mail` CLI | Planned |
