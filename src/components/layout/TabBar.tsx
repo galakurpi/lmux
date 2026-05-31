@@ -14,6 +14,7 @@ const HELP_ROWS = [
   ["New workspace", "Ctrl+Shift+N"],
   ["Switch workspaces", "Ctrl+1..9"],
   ["Close pane", "Ctrl+Shift+W"],
+  ["Latest unread pane", "Ctrl+Shift+U"],
   ["Zoom focused pane in", "Ctrl+Shift++"],
   ["Zoom focused pane out", "Ctrl+Shift+-"],
   ["Find in terminal", "Ctrl+Shift+F"],
@@ -59,7 +60,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
     >
       <div style={{ flex: 1 }}>
         {workspaces.map((ws) => {
-          let totalWsNotifications = 0;
+          let unreadPaneCount = 0;
           let lastLog: string | undefined;
           const statusCounts = { working: 0, waiting: 0, done: 0 };
           for (const pane of ws.panes) {
@@ -67,7 +68,8 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
             const activeTabSessionId = pane.tabs.find((t) => t.id === pane.activeTabId)?.sessionId;
             const m = activeTabSessionId ? paneMetadata[activeTabSessionId] : undefined;
             if (m) {
-              totalWsNotifications += m.notificationCount ?? 0;
+              const paneNotifications = m.notificationCount ?? 0;
+              if (paneNotifications > 0) unreadPaneCount++;
               if (m.lastLogLine) lastLog = m.lastLogLine;
               if (m.agentStatus && m.agentStatus !== "idle") {
                 statusCounts[m.agentStatus as keyof typeof statusCounts]++;
@@ -85,7 +87,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
               paneCount={ws.panes.length}
               cwd={firstPaneMeta?.cwd}
               gitBranch={firstPaneMeta?.gitBranch}
-              notificationCount={totalWsNotifications || undefined}
+              unreadPaneCount={unreadPaneCount || undefined}
               lastLogLine={lastLog}
               statusCounts={statusCounts}
               active={ws.id === activeId}

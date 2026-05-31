@@ -348,6 +348,36 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
           break;
         }
 
+        case "pane.focus.latestUnread": {
+          const metadata = usePaneMetadataStore.getState().metadata;
+          let target: { workspaceId: string; sessionId: string; lastNotificationAt: number } | null = null;
+
+          for (const workspace of ws) {
+            for (const pane of workspace.panes) {
+              const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+              const sessionId = activeTab?.sessionId ?? pane.sessionId;
+              const paneMeta = metadata[sessionId];
+              if (!paneMeta || (paneMeta.notificationCount ?? 0) <= 0) continue;
+
+              const lastNotificationAt = paneMeta.lastNotificationAt ?? 0;
+              if (!target || lastNotificationAt >= target.lastNotificationAt) {
+                target = { workspaceId: workspace.id, sessionId, lastNotificationAt };
+              }
+            }
+          }
+
+          if (!target) return;
+          setActiveWorkspace(target.workspaceId);
+          setActivePaneId(target.sessionId);
+
+          setTimeout(() => {
+            const el = document.querySelector<HTMLElement>(`[data-session-id="${target.sessionId}"]`);
+            const textarea = el?.querySelector<HTMLTextAreaElement>("textarea");
+            if (textarea) textarea.focus(); else el?.focus();
+          }, 0);
+          break;
+        }
+
         case "pane.focus.right":
         case "pane.focus.left":
         case "pane.focus.up":

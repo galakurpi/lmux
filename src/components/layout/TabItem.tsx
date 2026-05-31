@@ -14,7 +14,7 @@ interface TabItemProps {
   paneCount: number;
   cwd?: string;
   gitBranch?: string;
-  notificationCount?: number;
+  unreadPaneCount?: number;
   lastLogLine?: string;
   statusCounts?: StatusCounts;
   active: boolean;
@@ -43,7 +43,7 @@ function StatusPip({ count, color, pulse }: { count: number; color: string; puls
   );
 }
 
-export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, notificationCount, lastLogLine, statusCounts, active, onClick, onClose, onRename, onColorChange }: TabItemProps) {
+export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, unreadPaneCount, lastLogLine, statusCounts, active, onClick, onClose, onRename, onColorChange }: TabItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(name);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -141,21 +141,23 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
               opacity: active ? 1 : 0.7,
             }} />
           )}
-          {notificationCount ? (
+          {unreadPaneCount ? (
             <span style={{
-              background: "#007aff",
-              color: "white",
+              background: "rgba(0, 255, 65, 0.18)",
+              color: "var(--cmux-accent)",
               fontSize: "9px",
               fontWeight: "bold",
-              borderRadius: "50%",
-              width: "14px",
+              borderRadius: 999,
+              minWidth: "16px",
               height: "14px",
+              padding: "0 5px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              flexShrink: 0
+              flexShrink: 0,
+              border: "1px solid rgba(0, 255, 65, 0.32)",
             }}>
-              {notificationCount}
+              {unreadPaneCount}
             </span>
           ) : null}
           {isRenaming ? (

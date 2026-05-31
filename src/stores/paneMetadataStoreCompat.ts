@@ -5,6 +5,7 @@ export type AgentStatus = "working" | "waiting" | "done" | "idle";
 export interface PaneMetadata {
   lastLogLine?: string;
   notificationCount?: number;
+  lastNotificationAt?: number;
   cwd?: string;
   gitBranch?: string;
   processTitle?: string;
@@ -53,7 +54,7 @@ export const usePaneMetadataStore = create<PaneMetadataState>((set) => ({
     const result = {
       metadata: {
         ...state.metadata,
-        [sessionId]: { ...prev, notificationCount: oldCount + 1 },
+        [sessionId]: { ...prev, notificationCount: oldCount + 1, lastNotificationAt: Date.now() },
       },
     };
     console.log(`[PERF] incrementNotification (${oldCount} -> ${oldCount + 1}) - ${(performance.now() - start).toFixed(2)}ms`);
