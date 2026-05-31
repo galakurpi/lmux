@@ -37,6 +37,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
   const workspaces = useWorkspaceListStore((s) => s.workspaces);
   const activeId = useWorkspaceListStore((s) => s.activeWorkspaceId);
   const setActive = useWorkspaceListStore((s) => s.setActiveWorkspace);
+  const renameWorkspace = useWorkspaceListStore((s) => s.renameWorkspace);
   const paneMetadata = usePaneMetadataStore((s) => s.metadata);
 
   return (
@@ -89,6 +90,7 @@ export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabB
               active={ws.id === activeId}
               onClick={() => setActive(ws.id)}
               onClose={() => onCloseWorkspace(ws.id)}
+              onRename={(name) => renameWorkspace(ws.id, name)}
             />
           );
         })}

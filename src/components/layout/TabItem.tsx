@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 interface StatusCounts {
   working: number;
@@ -19,6 +19,7 @@ interface TabItemProps {
   active: boolean;
   onClick: () => void;
   onClose: () => void;
+  onRename: (name: string) => void;
 }
 
 function StatusPip({ count, color, pulse }: { count: number; color: string; pulse?: boolean }) {
@@ -40,11 +41,45 @@ function StatusPip({ count, color, pulse }: { count: number; color: string; puls
   );
 }
 
-export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, notificationCount, lastLogLine, statusCounts, active, onClick, onClose }: TabItemProps) {
+export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, notificationCount, lastLogLine, statusCounts, active, onClick, onClose, onRename }: TabItemProps) {
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(name);
+  const inputRef = useRef<HTMLInputElement>(null);
   const hasAgents = statusCounts && (statusCounts.working + statusCounts.waiting + statusCounts.done) > 0;
+
+  useEffect(() => {
+    if (!isRenaming) setDraftName(name);
+  }, [isRenaming, name]);
+
+  useEffect(() => {
+    if (isRenaming) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  const commitRename = () => {
+    const trimmedName = draftName.trim();
+    if (trimmedName && trimmedName !== name) {
+      onRename(trimmedName);
+    }
+    setIsRenaming(false);
+  };
+
+  const cancelRename = () => {
+    setDraftName(name);
+    setIsRenaming(false);
+  };
+
   return (
     <div
       onClick={onClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraftName(name);
+        setIsRenaming(true);
+      }}
       className={uiVariant === "cmux" ? "cmux-workspace-item" : undefined}
       style={{
         display: "flex",
@@ -109,16 +144,51 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
               {notificationCount}
             </span>
           ) : null}
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              fontWeight: active ? 600 : 500,
-            }}
-          >
-            {name}
-          </span>
+          {isRenaming ? (
+            <input
+              ref={inputRef}
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitRename();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelRename();
+                }
+              }}
+              style={{
+                minWidth: 0,
+                width: "100%",
+                flex: 1,
+                background: "#000000",
+                border: "1px solid var(--cmux-accent)",
+                borderRadius: 4,
+                color: "var(--cmux-text)",
+                font: "inherit",
+                fontWeight: active ? 600 : 500,
+                lineHeight: 1.2,
+                padding: "1px 4px",
+                outline: "none",
+              }}
+            />
+          ) : (
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontWeight: active ? 600 : 500,
+              }}
+            >
+              {name}
+            </span>
+          )}
           {paneCount > 1 && (
             <span className="cmux-pill" style={{
               flexShrink: 0,
@@ -165,6 +235,10 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
         onClick={(e) => {
           e.stopPropagation();
           onClose();
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
         }}
         style={{
           background: "none",
