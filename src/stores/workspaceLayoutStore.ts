@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { v4 as uuid } from "uuid";
-import type { Pane, PaneTab, GridTemplateId } from "../types";
+import type { Pane, PaneTab, GridTemplateId, SplitLayoutNode } from "../types";
 import { getGridTemplate } from "../lib/gridTemplates";
 import { getDefaultAgent } from "../lib/agents";
 import { makeSessionId } from "../lib/constants";
@@ -24,6 +24,80 @@ function makeTab(workspaceId: string, paneId: string, agentId: string, type: Pan
 interface BuildPanesResult {
   panes: Pane[];
   splitRows: string[][];
+  splitLayout: SplitLayoutNode;
+}
+
+function paneNode(paneId: string): SplitLayoutNode {
+  return { type: "pane", paneId };
+}
+
+function splitNode(direction: "horizontal" | "vertical", children: SplitLayoutNode[]): SplitLayoutNode {
+  const compactChildren = children.filter(Boolean);
+  if (compactChildren.length === 1) return compactChildren[0];
+  return { type: "split", direction, children: compactChildren };
+}
+
+function layoutFromRows(rows: string[][]): SplitLayoutNode {
+  const rowNodes = rows.map((row) => splitNode("horizontal", row.map(paneNode)));
+  return splitNode("vertical", rowNodes);
+}
+
+function insertIntoLayout(
+  node: SplitLayoutNode,
+  targetPaneId: string,
+  newPaneId: string,
+  direction: "horizontal" | "vertical",
+): { node: SplitLayoutNode; inserted: boolean } {
+  if (node.type === "pane") {
+    if (node.paneId !== targetPaneId) return { node, inserted: false };
+    return {
+      node: splitNode(direction, [node, paneNode(newPaneId)]),
+      inserted: true,
+    };
+  }
+
+  const directIdx = node.children.findIndex(
+    (child) => child.type === "pane" && child.paneId === targetPaneId,
+  );
+  if (directIdx !== -1 && node.direction === direction) {
+    const children = [...node.children];
+    children.splice(directIdx + 1, 0, paneNode(newPaneId));
+    return { node: { ...node, children }, inserted: true };
+  }
+
+  let inserted = false;
+  const children = node.children.map((child) => {
+    if (inserted) return child;
+    const result = insertIntoLayout(child, targetPaneId, newPaneId, direction);
+    inserted = result.inserted;
+    return result.node;
+  });
+
+  return { node: inserted ? { ...node, children } : node, inserted };
+}
+
+function removeFromLayout(
+  node: SplitLayoutNode,
+  paneId: string,
+): { node: SplitLayoutNode | null; removed: boolean } {
+  if (node.type === "pane") {
+    return node.paneId === paneId
+      ? { node: null, removed: true }
+      : { node, removed: false };
+  }
+
+  let removed = false;
+  const children: SplitLayoutNode[] = [];
+  for (const child of node.children) {
+    const result = removeFromLayout(child, paneId);
+    removed ||= result.removed;
+    if (result.node) children.push(result.node);
+  }
+
+  if (!removed) return { node, removed: false };
+  if (children.length === 0) return { node: null, removed: true };
+  if (children.length === 1) return { node: children[0], removed: true };
+  return { node: { ...node, children }, removed: true };
 }
 
 function buildPanes(
@@ -60,7 +134,7 @@ function buildPanes(
     }
   }
 
-  return { panes, splitRows };
+  return { panes, splitRows, splitLayout: layoutFromRows(splitRows) };
 }
 
 interface WorkspaceLayoutState {
@@ -105,8 +179,11 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
         .map((row) => row.filter((id) => id !== paneId))
         .filter((row) => row.length > 0);
     }
+    const layout = workspace.splitLayout ?? layoutFromRows(workspace.splitRows ?? [workspace.panes.map((p) => p.id)]);
+    const result = removeFromLayout(layout, paneId);
+    const newSplitLayout = result.node ?? layoutFromRows([newPanes.map((p) => p.id)]);
 
-    useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes, newSplitRows);
+    useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes, newSplitRows, newSplitLayout);
   },
 
   addPaneToWorkspace: (workspaceId, afterPaneId, direction, agentId) => {
@@ -130,6 +207,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
     const existingRows: string[][] = workspace.splitRows ?? [workspace.panes.map((p) => p.id)];
 
     let newSplitRows: string[][];
+    let newSplitLayout: SplitLayoutNode;
     if (direction === "right") {
       // Insert new pane ID after afterPaneId in its row
       newSplitRows = existingRows.map((row) => {
@@ -139,6 +217,8 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
         newRow.splice(idx + 1, 0, paneId);
         return newRow;
       });
+      const layout = workspace.splitLayout ?? layoutFromRows(existingRows);
+      newSplitLayout = insertIntoLayout(layout, afterPaneId, paneId, "horizontal").node;
     } else {
       // direction === "down": insert new row after the row containing afterPaneId
       newSplitRows = [];
@@ -148,9 +228,11 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
           newSplitRows.push([paneId]);
         }
       }
+      const layout = workspace.splitLayout ?? layoutFromRows(existingRows);
+      newSplitLayout = insertIntoLayout(layout, afterPaneId, paneId, "vertical").node;
     }
 
-    useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes, newSplitRows);
+    useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes, newSplitRows, newSplitLayout);
   },
 
   addTabToPane: (workspaceId, paneId, agentId, type = "terminal") => {

@@ -52,30 +52,31 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
         justifyContent: "space-between",
         padding: "8px 12px",
         cursor: "pointer",
-        background: active
-          ? (uiVariant === "cmux" ? "rgba(255,255,255,0.07)" : "var(--cmux-accent)")
-          : "transparent",
-        color: active
-          ? (uiVariant === "cmux" ? "#f3f3f3" : "#ffffff")
-          : "var(--cmux-text-secondary)",
+        background: active ? "#000000" : "transparent",
+        color: active ? "var(--cmux-text)" : "var(--cmux-text-secondary)",
         fontSize: "13px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         userSelect: "none",
-        transition: "background 0.1s, color 0.1s",
+        transition: "background 0.1s, color 0.1s, border-color 0.1s",
+        border: active
+          ? "1px solid var(--cmux-accent)"
+          : "1px solid transparent",
         borderRadius: uiVariant === "cmux" ? "8px" : "6px",
         margin: "0 8px",
         marginTop: "4px"
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+          e.currentTarget.style.background = uiVariant === "cmux" ? "#000000" : "rgba(255, 255, 255, 0.05)";
           e.currentTarget.style.color = "var(--cmux-text)";
+          if (uiVariant === "cmux") e.currentTarget.style.borderColor = "rgba(0, 255, 65, 0.45)";
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.background = "transparent";
           e.currentTarget.style.color = "var(--cmux-text-secondary)";
+          if (uiVariant === "cmux") e.currentTarget.style.borderColor = "transparent";
         }
       }}
     >
@@ -121,8 +122,8 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
           {paneCount > 1 && (
             <span className="cmux-pill" style={{
               flexShrink: 0,
-              background: active ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-              color: active ? "#ffffff" : "var(--cmux-text-secondary)"
+              background: active ? "rgba(0,255,65,0.12)" : "rgba(0,255,65,0.08)",
+              color: active ? "var(--cmux-accent)" : "var(--cmux-text-secondary)"
             }}>
               {paneCount}
             </span>

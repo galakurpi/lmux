@@ -1,7 +1,7 @@
 import { useCallback, useMemo, memo } from "react";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
-import type { Pane, GridTemplateId } from "../../types";
+import type { Pane, GridTemplateId, SplitLayoutNode } from "../../types";
 import { useWorkspaceLayoutStore } from "../../stores/workspaceStore";
 import TerminalPane from "./TerminalPane";
 import { ErrorBoundary } from "../layout/ErrorBoundary";
@@ -11,12 +11,14 @@ interface TerminalGridProps {
   gridTemplateId: GridTemplateId;
   panes: Pane[];
   splitRows?: string[][];
+  splitLayout?: SplitLayoutNode;
 }
 
 export default memo(function TerminalGrid({
   workspaceId,
   panes,
   splitRows,
+  splitLayout,
 }: TerminalGridProps) {
   const removePaneFromWorkspace = useWorkspaceLayoutStore((s) => s.removePaneFromWorkspace);
   const addPaneToWorkspace = useWorkspaceLayoutStore((s) => s.addPaneToWorkspace);
@@ -35,12 +37,46 @@ export default memo(function TerminalGrid({
 
   const paneMap = useMemo(() => Object.fromEntries(panes.map((p) => [p.id, p])), [panes]);
 
-  // Always use splitRows for consistent React tree structure
-  // This prevents component remounting when pane count changes
-  if (splitRows) {
-    // Use splitRows if available, otherwise flat horizontal layout
-    const rows: string[][] = splitRows ?? [panes.map((p) => p.id)];
+  const renderPane = useCallback((paneId: string) => {
+    const pane = paneMap[paneId];
+    if (!pane) return null;
 
+    return (
+      <ErrorBoundary>
+        <TerminalPane
+          pane={pane}
+          workspaceId={workspaceId}
+          onClose={() => handleClose(pane.id)}
+          onSplitRight={() => handleSplitRight(pane.id)}
+          onSplitDown={() => handleSplitDown(pane.id)}
+        />
+      </ErrorBoundary>
+    );
+  }, [handleClose, handleSplitDown, handleSplitRight, paneMap, workspaceId]);
+
+  const renderLayout = useCallback((node: SplitLayoutNode): React.ReactNode => {
+    if (node.type === "pane") return renderPane(node.paneId);
+
+    return (
+      <Allotment vertical={node.direction === "vertical"} separator={false}>
+        {node.children.map((child) => {
+          const key = child.type === "pane" ? child.paneId : `${child.direction}-${child.children.map((c) => c.type === "pane" ? c.paneId : c.direction).join("-")}`;
+          return (
+            <Allotment.Pane key={key}>
+              {renderLayout(child)}
+            </Allotment.Pane>
+          );
+        })}
+      </Allotment>
+    );
+  }, [renderPane]);
+
+  if (splitLayout) {
+    return renderLayout(splitLayout);
+  }
+
+  if (splitRows) {
+    const rows: string[][] = splitRows ?? [panes.map((p) => p.id)];
     return (
       <Allotment vertical separator={false}>
         {rows.map((row, rowIdx) => (

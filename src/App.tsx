@@ -22,8 +22,8 @@ function App() {
     if (listStore.workspaces.length === 0) {
       // Create initial workspace
       const workspaceId = crypto.randomUUID();
-      const { panes, splitRows } = useWorkspaceLayoutStore.getState().buildInitialPanes(workspaceId, "1x1");
-      listStore.createWorkspace("Terminal", "1x1", panes, splitRows);
+      const { panes, splitRows, splitLayout } = useWorkspaceLayoutStore.getState().buildInitialPanes(workspaceId, "1x1");
+      listStore.createWorkspace("Terminal", "1x1", panes, splitRows, splitLayout);
     }
     setReady(true);
 

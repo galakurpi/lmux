@@ -38,6 +38,7 @@ export default memo(function WorkspaceView() {
             gridTemplateId={workspace.gridTemplateId}
             panes={workspace.panes}
             splitRows={workspace.splitRows}
+            splitLayout={workspace.splitLayout}
           />
         </div>
       ))}

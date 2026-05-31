@@ -29,8 +29,8 @@ export default function CommandPalette() {
   // Create workspace function
   const createWorkspace = useCallback((name: string, gridTemplateId: "1x1" | "2x1") => {
     const workspaceId = crypto.randomUUID();
-    const { panes, splitRows } = useWorkspaceLayoutStore.getState().buildInitialPanes(workspaceId, gridTemplateId);
-    useWorkspaceListStore.getState().createWorkspace(name, gridTemplateId, panes, splitRows);
+    const { panes, splitRows, splitLayout } = useWorkspaceLayoutStore.getState().buildInitialPanes(workspaceId, gridTemplateId);
+    useWorkspaceListStore.getState().createWorkspace(name, gridTemplateId, panes, splitRows, splitLayout);
   }, []);
 
   // Close palette if clicking outside

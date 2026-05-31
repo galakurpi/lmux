@@ -40,6 +40,14 @@ export interface Pane {
   gitBranch?: string;
 }
 
+export type SplitLayoutNode =
+  | { type: "pane"; paneId: string }
+  | {
+      type: "split";
+      direction: "horizontal" | "vertical";
+      children: SplitLayoutNode[];
+    };
+
 export type WorkspaceStatus = "setup" | "running" | "stopped";
 
 export interface Workspace {
@@ -52,4 +60,5 @@ export interface Workspace {
   color?: string;
   /** Each entry is a row of pane IDs for dynamic split tracking */
   splitRows?: string[][];
+  splitLayout?: SplitLayoutNode;
 }

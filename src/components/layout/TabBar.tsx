@@ -1,21 +1,28 @@
+import { useState } from "react";
 import { useWorkspaceListStore, usePaneMetadataStore } from "../../stores/workspaceStore";
 import { SIDEBAR_WIDTH } from "../../lib/constants";
 import TabItem from "./TabItem";
 
-const PlusIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19"></line>
-    <line x1="5" y1="12" x2="19" y2="12"></line>
-  </svg>
-);
-
 interface TabBarProps {
   uiVariant?: "default" | "cmux";
-  onNewWorkspace: () => void;
   onCloseWorkspace: (id: string) => void;
 }
 
-export default function TabBar({ uiVariant = "default", onNewWorkspace, onCloseWorkspace }: TabBarProps) {
+const HELP_ROWS = [
+  ["Split right", "Ctrl+Shift+D"],
+  ["Split down", "Ctrl+Shift+X"],
+  ["Focus panes", "Ctrl+Shift+Arrows"],
+  ["New workspace", "Ctrl+Shift+N"],
+  ["Switch workspaces", "Ctrl+1..9"],
+  ["Close pane", "Ctrl+Shift+W"],
+  ["Find in terminal", "Ctrl+Shift+F"],
+  ["Zoom pane", "Ctrl+Shift+Enter"],
+  ["Insert newline", "Shift+Enter"],
+  ["Open/focus Lmux", "lmux"],
+];
+
+export default function TabBar({ uiVariant = "default", onCloseWorkspace }: TabBarProps) {
+  const [helpOpen, setHelpOpen] = useState(false);
   const workspaces = useWorkspaceListStore((s) => s.workspaces);
   const activeId = useWorkspaceListStore((s) => s.activeWorkspaceId);
   const setActive = useWorkspaceListStore((s) => s.setActiveWorkspace);
@@ -76,39 +83,115 @@ export default function TabBar({ uiVariant = "default", onNewWorkspace, onCloseW
         })}
       </div>
 
-      {/* New workspace button at bottom */}
       <button
-        onClick={onNewWorkspace}
-        title="New workspace (Ctrl+Shift+N)"
-        className={uiVariant === "cmux" ? "cmux-title-btn" : undefined}
+        onClick={() => setHelpOpen(true)}
+        title="Lmux help"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          width: "100%",
-          background: "none",
-          border: "none",
-          borderTop: "1px solid var(--cmux-border)",
-          color: "var(--cmux-text-tertiary)",
+          width: 28,
+          height: 28,
+          margin: "8px",
+          borderRadius: 6,
+          border: "1px solid var(--cmux-border)",
+          background: "#000000",
+          color: "var(--cmux-accent)",
           cursor: "pointer",
-          padding: "10px 16px",
-          fontSize: 12,
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          textAlign: "left",
+          fontSize: 14,
+          fontWeight: 700,
+          lineHeight: 1,
           flexShrink: 0,
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = uiVariant === "cmux" ? "var(--cmux-hover)" : "rgba(255,255,255,0.04)";
-          e.currentTarget.style.color = "var(--cmux-text-secondary)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "none";
-          e.currentTarget.style.color = "var(--cmux-text-tertiary)";
-        }}
       >
-        <PlusIcon />
-        <span>New workspace</span>
+        ?
       </button>
+
+      {helpOpen && (
+        <div
+          onClick={() => setHelpOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            background: "rgba(0, 0, 0, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(520px, calc(100vw - 48px))",
+              maxHeight: "min(620px, calc(100vh - 48px))",
+              overflow: "auto",
+              background: "#000000",
+              border: "1px solid var(--cmux-accent)",
+              borderRadius: 8,
+              boxShadow: "0 0 24px rgba(0, 255, 65, 0.22)",
+              color: "var(--cmux-text)",
+              padding: 18,
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--cmux-accent)" }}>
+                Lmux Commands
+              </div>
+              <button
+                onClick={() => setHelpOpen(false)}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 4,
+                  border: "1px solid var(--cmux-border)",
+                  background: "#000000",
+                  color: "var(--cmux-text-secondary)",
+                  cursor: "pointer",
+                  fontSize: 16,
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            </div>
+
+            <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
+              {HELP_ROWS.map(([label, shortcut]) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    gap: 12,
+                    alignItems: "center",
+                    borderBottom: "1px solid rgba(0, 255, 65, 0.16)",
+                    paddingBottom: 8,
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ color: "var(--cmux-text)" }}>{label}</span>
+                  <code
+                    style={{
+                      color: "var(--cmux-accent)",
+                      background: "rgba(0, 255, 65, 0.08)",
+                      border: "1px solid rgba(0, 255, 65, 0.18)",
+                      borderRadius: 4,
+                      padding: "3px 6px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {shortcut}
+                  </code>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 14, color: "var(--cmux-text-secondary)", fontSize: 11, lineHeight: 1.5 }}>
+              New terminals open in `/home/gal/Desktop/business/projects/Yekar_OS`.
+              Use the top `+` button or Ctrl+Shift+N for another workspace.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

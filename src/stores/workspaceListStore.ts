@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { v4 as uuid } from "uuid";
-import type { Workspace, GridTemplateId } from "../types";
+import type { Workspace, GridTemplateId, SplitLayoutNode } from "../types";
 
 const WORKSPACE_COLORS = ["#00ff41", "#00c853", "#39ff14", "#d7ff00", "#00ffaa", "#007a24"];
 
@@ -22,6 +22,7 @@ interface WorkspaceListState {
     gridTemplateId: GridTemplateId,
     panes: Workspace["panes"],
     splitRows: string[][],
+    splitLayout?: SplitLayoutNode,
     color?: string,
   ) => Workspace;
   removeWorkspace: (id: string) => void;
@@ -30,7 +31,12 @@ interface WorkspaceListState {
   setWorkspaceStatus: (id: string, status: Workspace["status"]) => void;
   
   // Internal update for layout store to modify panes
-  _updateWorkspacePanes: (id: string, panes: Workspace["panes"], splitRows?: string[][]) => void;
+  _updateWorkspacePanes: (
+    id: string,
+    panes: Workspace["panes"],
+    splitRows?: string[][],
+    splitLayout?: SplitLayoutNode,
+  ) => void;
 }
 
 export const useWorkspaceListStore = create<WorkspaceListState>((set, get) => ({
@@ -46,7 +52,7 @@ export const useWorkspaceListStore = create<WorkspaceListState>((set, get) => ({
     return get().workspaces.find((w) => w.id === id);
   },
 
-  createWorkspace: (name, gridTemplateId, panes, splitRows, color) => {
+  createWorkspace: (name, gridTemplateId, panes, splitRows, splitLayout, color) => {
     const start = performance.now();
     
     const id = uuid();
@@ -59,6 +65,7 @@ export const useWorkspaceListStore = create<WorkspaceListState>((set, get) => ({
       gridTemplateId,
       panes,
       splitRows,
+      splitLayout,
       status: "running",
       createdAt: Date.now(),
       color: autoColor,
@@ -106,11 +113,16 @@ export const useWorkspaceListStore = create<WorkspaceListState>((set, get) => ({
     }));
   },
 
-  _updateWorkspacePanes: (id, panes, splitRows) => {
+  _updateWorkspacePanes: (id, panes, splitRows, splitLayout) => {
     set((state) => ({
       workspaces: state.workspaces.map((w) =>
         w.id === id
-          ? { ...w, panes, ...(splitRows !== undefined && { splitRows }) }
+          ? {
+              ...w,
+              panes,
+              ...(splitRows !== undefined && { splitRows }),
+              ...(splitLayout !== undefined && { splitLayout }),
+            }
           : w
       ),
     }));

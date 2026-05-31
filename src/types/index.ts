@@ -3,6 +3,7 @@ export type {
   GridTemplate,
   PaneTab,
   Pane,
+  SplitLayoutNode,
   WorkspaceStatus,
   Workspace,
 } from "./workspace";

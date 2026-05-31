@@ -146,7 +146,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
     ) => {
       // Build panes using layout store
       const workspaceId = crypto.randomUUID();
-      const { panes, splitRows } = useWorkspaceLayoutStore.getState().buildInitialPanes(
+      const { panes, splitRows, splitLayout } = useWorkspaceLayoutStore.getState().buildInitialPanes(
         workspaceId, 
         gridTemplateId, 
         agentAssignments
@@ -158,6 +158,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
         gridTemplateId,
         panes,
         splitRows,
+        splitLayout,
         color
       );
       
@@ -400,7 +401,6 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
         >
           <TabBar
             uiVariant={uiVariant}
-            onNewWorkspace={handleNewWorkspace}
             onCloseWorkspace={handleCloseWorkspace}
           />
         </div>
