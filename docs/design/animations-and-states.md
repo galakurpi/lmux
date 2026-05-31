@@ -76,7 +76,7 @@
 ## Disabled/Loading
 
 Currently no explicit disabled states or loading skeletons are implemented.
-The app renders a solid `#0a0a0a` div until `ready` state is true (see `App.tsx`).
+The app renders a solid `#000000` div until `ready` state is true (see `App.tsx`).
 
 ## Motion Preferences
 

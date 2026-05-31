@@ -1,32 +1,32 @@
 :root {
-  --cmux-bg: #0a0a0a;
-  --cmux-sidebar: #1E1E1E;
-  --cmux-accent: #0A84FF;
-  --cmux-border: rgba(255, 255, 255, 0.1);
-  --cmux-text: rgba(255, 255, 255, 0.9);
-  --cmux-text-secondary: rgba(255, 255, 255, 0.6);
-  --cmux-text-tertiary: rgba(255, 255, 255, 0.3);
-  --cmux-title-bg: #111111;
-  --cmux-surface: #161616;
-  --cmux-hover: rgba(255, 255, 255, 0.06);
+  --cmux-bg: #000000;
+  --cmux-sidebar: #000000;
+  --cmux-accent: #00ff41;
+  --cmux-border: rgba(0, 255, 65, 0.24);
+  --cmux-text: #d7ffe1;
+  --cmux-text-secondary: #00c853;
+  --cmux-text-tertiary: #007a24;
+  --cmux-title-bg: #000000;
+  --cmux-surface: #000000;
+  --cmux-hover: rgba(0, 255, 65, 0.1);
 
-  --status-working: #3b82f6;
-  --status-waiting: #f59e0b;
-  --status-done:    #10b981;
-  --status-error:   #ef4444;
+  --status-working: #00ff41;
+  --status-waiting: #d7ff00;
+  --status-done:    #00c853;
+  --status-error:   #ff3158;
 }
 
 .ui-cmux {
-  --cmux-bg: #0b0b0c;
-  --cmux-sidebar: #141415;
-  --cmux-title-bg: #0f0f10;
-  --cmux-surface: #151516;
-  --cmux-accent: #3b82f6;
-  --cmux-border: rgba(255, 255, 255, 0.08);
-  --cmux-text: #ededed;
-  --cmux-text-secondary: #b2b2b2;
-  --cmux-text-tertiary: #7c7c7c;
-  --cmux-hover: rgba(255, 255, 255, 0.07);
+  --cmux-bg: #000000;
+  --cmux-sidebar: #000000;
+  --cmux-title-bg: #000000;
+  --cmux-surface: #000000;
+  --cmux-accent: #00ff41;
+  --cmux-border: rgba(0, 255, 65, 0.24);
+  --cmux-text: #d7ffe1;
+  --cmux-text-secondary: #00c853;
+  --cmux-text-tertiary: #007a24;
+  --cmux-hover: rgba(0, 255, 65, 0.1);
 }
 
 * {
@@ -51,8 +51,8 @@ body,
 }
 
 .cmux-pill {
-  background: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 255, 65, 0.16);
+  color: var(--cmux-text);
   border-radius: 9999px;
   /* Efeito Capsule */
   padding: 2px 8px;

@@ -43,7 +43,7 @@ function buildThemeFromConfig(cfg: { background: string; foreground: string; ans
     background: cfg.background,
     foreground: cfg.foreground,
     cursor: cfg.foreground,
-    selectionBackground: "#404040",
+    selectionBackground: "#063b16",
   };
   for (let i = 0; i < ANSI_KEYS.length && i < cfg.ansi.length; i++) {
     (theme as Record<string, string>)[ANSI_KEYS[i] as string] = cfg.ansi[i];
@@ -52,26 +52,26 @@ function buildThemeFromConfig(cfg: { background: string; foreground: string; ans
 }
 
 const DEFAULT_THEME: ITheme = {
-  background: "#0a0a0a",
-  foreground: "#ededed",
-  cursor: "#f5e0dc",
-  selectionBackground: "#404040",
-  black: "#171717",
-  red: "#f38ba8",
-  green: "#a6e3a1",
-  yellow: "#f9e2af",
-  blue: "#89b4fa",
-  magenta: "#f5c2e7",
-  cyan: "#94e2d5",
-  white: "#bac2de",
-  brightBlack: "#585b70",
-  brightRed: "#f38ba8",
-  brightGreen: "#a6e3a1",
-  brightYellow: "#f9e2af",
-  brightBlue: "#89b4fa",
-  brightMagenta: "#f5c2e7",
-  brightCyan: "#94e2d5",
-  brightWhite: "#ededed",
+  background: "#000000",
+  foreground: "#d7ffe1",
+  cursor: "#00ff41",
+  selectionBackground: "#063b16",
+  black: "#000000",
+  red: "#ff3158",
+  green: "#00c853",
+  yellow: "#d7ff00",
+  blue: "#00a3ff",
+  magenta: "#39ff14",
+  cyan: "#00ffaa",
+  white: "#d7ffe1",
+  brightBlack: "#007a24",
+  brightRed: "#ff5f7a",
+  brightGreen: "#00ff41",
+  brightYellow: "#eeff55",
+  brightBlue: "#5fd7ff",
+  brightMagenta: "#8cff8c",
+  brightCyan: "#76ffd6",
+  brightWhite: "#ffffff",
 };
 
 // Cache terminal config globally — fetched once, reused across all panes
@@ -394,7 +394,7 @@ export default memo(function XTermWrapper({
     const val = e.target.value;
     setSearchQuery(val);
     if (val && searchAddonRef.current) {
-      searchAddonRef.current.findNext(val, { decorations: { matchBackground: '#404040', matchBorder: '#89b4fa', matchOverviewRuler: '#89b4fa', activeMatchBackground: '#89b4fa', activeMatchBorder: '#89b4fa', activeMatchColorOverviewRuler: '#89b4fa' } });
+      searchAddonRef.current.findNext(val, { decorations: { matchBackground: '#063b16', matchBorder: '#00ff41', matchOverviewRuler: '#00ff41', activeMatchBackground: '#00ff41', activeMatchBorder: '#00ff41', activeMatchColorOverviewRuler: '#00ff41' } });
     } else if (searchAddonRef.current) {
       searchAddonRef.current.clearDecorations();
     }

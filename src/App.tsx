@@ -46,7 +46,7 @@ function App() {
         style={{
           width: "100vw",
           height: "100vh",
-          background: "#0a0a0a",
+          background: "#000000",
         }}
       />
     );

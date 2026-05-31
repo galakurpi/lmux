@@ -159,7 +159,7 @@ function buildPanes(
   return panes;
 }
 
-const WORKSPACE_COLORS = ["#89b4fa", "#a6e3a1", "#f9e2af", "#f38ba8", "#94e2d5", "#f5c2e7"];
+const WORKSPACE_COLORS = ["#00ff41", "#00c853", "#39ff14", "#d7ff00", "#00ffaa", "#007a24"];
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],

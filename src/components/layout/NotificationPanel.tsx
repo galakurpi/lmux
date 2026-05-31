@@ -22,7 +22,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
           result.push({
             workspaceId: ws.id,
             workspaceName: ws.name,
-            workspaceColor: ws.color ?? "#0A84FF",
+            workspaceColor: ws.color ?? "#00ff41",
             sessionId: pane.sessionId,
             count: m.notificationCount ?? 0,
             lastLogLine: m.lastLogLine,

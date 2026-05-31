@@ -8,7 +8,7 @@ export const BUILT_IN_AGENTS: AgentDefinition[] = [
     command: "/bin/bash",
     args: [],
     icon: "$",
-    color: "#a6e3a1",
+    color: "#00ff41",
   },
   {
     id: "claude-code",
@@ -17,7 +17,7 @@ export const BUILT_IN_AGENTS: AgentDefinition[] = [
     command: "claude",
     args: [],
     icon: "C",
-    color: "#89b4fa",
+    color: "#00c853",
   },
   {
     id: "codex",
@@ -26,7 +26,7 @@ export const BUILT_IN_AGENTS: AgentDefinition[] = [
     command: "codex",
     args: [],
     icon: "X",
-    color: "#f5c2e7",
+    color: "#39ff14",
   },
   {
     id: "gemini",
@@ -35,7 +35,7 @@ export const BUILT_IN_AGENTS: AgentDefinition[] = [
     command: "gemini",
     args: [],
     icon: "G",
-    color: "#f9e2af",
+    color: "#d7ff00",
   },
   {
     id: "aider",
@@ -44,7 +44,7 @@ export const BUILT_IN_AGENTS: AgentDefinition[] = [
     command: "aider",
     args: [],
     icon: "A",
-    color: "#94e2d5",
+    color: "#00ffaa",
   },
 ];
 

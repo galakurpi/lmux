@@ -4,13 +4,13 @@
 
 ```css
 :root {
-  --cmux-bg: #0a0a0a;
-  --cmux-sidebar: #1E1E1E;
-  --cmux-accent: #0A84FF;
-  --cmux-border: rgba(255, 255, 255, 0.1);
-  --cmux-text: rgba(255, 255, 255, 0.9);
-  --cmux-text-secondary: rgba(255, 255, 255, 0.6);
-  --cmux-text-tertiary: rgba(255, 255, 255, 0.3);
+  --cmux-bg: #000000;
+  --cmux-sidebar: #000000;
+  --cmux-accent: #00ff41;
+  --cmux-border: rgba(0, 255, 65, 0.24);
+  --cmux-text: #d7ffe1;
+  --cmux-text-secondary: #00c853;
+  --cmux-text-tertiary: #007a24;
 }
 ```
 
@@ -29,15 +29,15 @@ Note: These are static fallback values. Theme-driven colors come from `ThemeDefi
 
 | Context | Color Source | Example |
 |---------|-------------|---------|
-| App background | `--cmux-bg` / `chrome.background` | `#0a0a0a` |
-| Sidebar background | `--cmux-sidebar` | `#1E1E1E` |
-| Pane header | Hardcoded `#1a1a1a` | PaneTabBar background |
+| App background | `--cmux-bg` / `chrome.background` | `#000000` |
+| Sidebar background | `--cmux-sidebar` | `#000000` |
+| Pane header | `--cmux-surface` | PaneTabBar background |
 | Active indicator | `--cmux-accent` | Tab underline, focus outline |
 | Notification dot | `#ff3b30` (iOS red) | Pane notification badge |
-| Hover states | `rgba(255, 255, 255, 0.08)` | Button/tab hover |
-| Active tab bg | `rgba(255, 255, 255, 0.06)` | Selected tab in PaneTabBar |
-| Pill background | `rgba(255, 255, 255, 0.18)` | `.cmux-pill` class |
-| Focus outline | `rgba(10, 132, 255, 0.5)` | Active pane border |
+| Hover states | `rgba(0, 255, 65, 0.1)` | Button/tab hover |
+| Active tab bg | `rgba(0, 255, 65, 0.1)` | Selected tab in PaneTabBar |
+| Pill background | `rgba(0, 255, 65, 0.16)` | `.cmux-pill` class |
+| Focus outline | `rgba(0, 255, 65, 0.5)` | Active pane border |
 | Flash border | `var(--cmux-accent)` | 3px solid on flash animation |
 
 ## Workspace Colors
@@ -45,7 +45,7 @@ Note: These are static fallback values. Theme-driven colors come from `ThemeDefi
 6 rotating colors assigned to new workspaces:
 
 ```typescript
-["#89b4fa", "#a6e3a1", "#f9e2af", "#f38ba8", "#94e2d5", "#f5c2e7"]
+["#00ff41", "#00c853", "#39ff14", "#d7ff00", "#00ffaa", "#007a24"]
 ```
 
 Cycle: workspace index `% 6`.
@@ -53,9 +53,9 @@ Cycle: workspace index `% 6`.
 ## xterm.js Hard-coded Overrides
 
 ```css
-.xterm             { padding: 2px 4px 0; background: #0a0a0a; }
-.xterm-viewport    { overflow-y: hidden !important; background: #0a0a0a !important; }
-.xterm-screen      { image-rendering: pixelated; background: #0a0a0a; }
+.xterm             { padding: 2px 4px 0; background: #000000; }
+.xterm-viewport    { overflow-y: hidden !important; background: #000000 !important; }
+.xterm-screen      { image-rendering: pixelated; background: #000000; }
 ```
 
 These override xterm's defaults for sharper rendering in WebKitGTK (Tauri's Linux webview).

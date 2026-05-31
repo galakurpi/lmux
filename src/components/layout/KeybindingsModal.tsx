@@ -121,7 +121,7 @@ export default function KeybindingsModal({ onClose }: KeybindingsModalProps) {
               style={{
                 background: "var(--cmux-accent)",
                 border: "1px solid var(--cmux-accent)",
-                color: "#0a0a0a",
+                color: "#000000",
                 borderRadius: 4,
                 padding: "6px 10px",
                 fontSize: 11,

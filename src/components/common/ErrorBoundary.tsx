@@ -43,7 +43,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             justifyContent: "center",
             gap: 12,
             height: "100%",
-            background: "var(--cmux-bg, #0a0a0a)",
+            background: "var(--cmux-bg, #000000)",
             color: "var(--cmux-text-secondary, rgba(255,255,255,0.6))",
             fontFamily: "'JetBrains Mono', monospace",
             fontSize: 13,

@@ -24,7 +24,7 @@ interface ThemeDefinition {
 
 | ID | Name | Terminal BG | Accent |
 |----|------|-------------|--------|
-| `midnight` | Midnight | `#0a0a0a` | `#89b4fa` |
+| `midnight` | Matrix | `#000000` | `#00ff41` |
 | `catppuccin-mocha` | Catppuccin Mocha | `#1e1e2e` | `#89b4fa` |
 | `dracula` | Dracula | `#282a36` | `#bd93f9` |
 | `nord` | Nord | `#2e3440` | `#88c0d0` |

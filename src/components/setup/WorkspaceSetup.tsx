@@ -4,7 +4,7 @@ import { getGridTemplate } from "../../lib/gridTemplates";
 import GridPicker from "./GridPicker";
 import AgentSlotList from "./AgentSlotList";
 
-const COLOR_PALETTE = ["#89b4fa", "#a6e3a1", "#f9e2af", "#f38ba8", "#94e2d5", "#f5c2e7"];
+const COLOR_PALETTE = ["#00ff41", "#00c853", "#39ff14", "#d7ff00", "#00ffaa", "#007a24"];
 
 interface WorkspaceSetupProps {
   onLaunch: (
@@ -157,7 +157,7 @@ export default function WorkspaceSetup({ onLaunch, onCancel }: WorkspaceSetupPro
               background: "var(--cmux-accent)",
               border: "none",
               borderRadius: 4,
-              color: "#0a0a0a",
+              color: "#000000",
               padding: "6px 16px",
               fontSize: 12,
               fontFamily: "'JetBrains Mono', monospace",

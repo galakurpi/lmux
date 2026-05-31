@@ -119,7 +119,7 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
           right: 0,
           bottom: 0,
           zIndex: 100,
-          background: "var(--cmux-bg, #0a0a0a)",
+          background: "var(--cmux-bg, #000000)",
         } : {
           position: "relative",
           width: "100%",
