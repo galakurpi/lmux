@@ -43,7 +43,7 @@ function StatusPip({ count, color, pulse }: { count: number; color: string; puls
   );
 }
 
-export default memo(function TabItem({ uiVariant = "default", name, color, paneCount, cwd, gitBranch, unreadPaneCount, lastLogLine, statusCounts, active, onClick, onClose, onRename, onColorChange }: TabItemProps) {
+export default memo(function TabItem({ uiVariant = "default", name, color, cwd, gitBranch, unreadPaneCount, lastLogLine, statusCounts, active, onClick, onClose, onRename, onColorChange }: TabItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(name);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -141,25 +141,6 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
               opacity: active ? 1 : 0.7,
             }} />
           )}
-          {unreadPaneCount ? (
-            <span style={{
-              background: "rgba(0, 255, 65, 0.18)",
-              color: "var(--cmux-accent)",
-              fontSize: "9px",
-              fontWeight: "bold",
-              borderRadius: 999,
-              minWidth: "16px",
-              height: "14px",
-              padding: "0 5px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              border: "1px solid rgba(0, 255, 65, 0.32)",
-            }}>
-              {unreadPaneCount}
-            </span>
-          ) : null}
           {isRenaming ? (
             <input
               ref={inputRef}
@@ -205,15 +186,25 @@ export default memo(function TabItem({ uiVariant = "default", name, color, paneC
               {name}
             </span>
           )}
-          {paneCount > 1 && (
-            <span className="cmux-pill" style={{
+          {unreadPaneCount ? (
+            <span title={`${unreadPaneCount} unread pane${unreadPaneCount === 1 ? "" : "s"}`} style={{
               flexShrink: 0,
-              background: active ? "rgba(0,255,65,0.12)" : "rgba(0,255,65,0.08)",
-              color: active ? "var(--cmux-accent)" : "var(--cmux-text-secondary)"
+              background: "rgba(0, 255, 65, 0.18)",
+              color: "var(--cmux-accent)",
+              fontSize: "9px",
+              fontWeight: "bold",
+              borderRadius: 999,
+              minWidth: "16px",
+              height: "14px",
+              padding: "0 5px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid rgba(0, 255, 65, 0.32)",
             }}>
-              {paneCount}
+              {unreadPaneCount}
             </span>
-          )}
+          ) : null}
         </div>
         {hasAgents && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 1 }}>

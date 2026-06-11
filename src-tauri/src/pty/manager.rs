@@ -27,6 +27,10 @@ impl SessionManager {
         cwd: Option<String>,
         workspace_id: Option<String>,
     ) -> Result<(), String> {
+        if let Some(session) = self.sessions.get(&session_id) {
+            return session.attach(data_channel, cols, rows);
+        }
+
         let session = PtySession::spawn(
             session_id.clone(),
             command,
@@ -48,6 +52,12 @@ impl SessionManager {
             .get(session_id)
             .ok_or_else(|| format!("Session not found: {session_id}"))?;
         session.write(data)
+    }
+
+    pub fn process_id(&self, session_id: &str) -> Option<u32> {
+        self.sessions
+            .get(session_id)
+            .and_then(|session| session.process_id())
     }
 
     pub fn resize(&self, session_id: &str, cols: u16, rows: u16) -> Result<(), String> {

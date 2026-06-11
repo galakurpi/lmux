@@ -19,7 +19,9 @@ export default memo(function WorkspaceView() {
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      {workspaces.map((workspace) => (
+      {workspaces.map((workspace) => {
+        const isVisible = workspace.id === activeId;
+        return (
         <div
           key={workspace.id}
           style={{
@@ -28,9 +30,9 @@ export default memo(function WorkspaceView() {
             left: 0,
             right: 0,
             bottom: 0,
-            visibility: workspace.id === activeId ? "visible" : "hidden",
-            zIndex: workspace.id === activeId ? 1 : 0,
-            pointerEvents: workspace.id === activeId ? "auto" : "none",
+            visibility: isVisible ? "visible" : "hidden",
+            zIndex: isVisible ? 1 : 0,
+            pointerEvents: isVisible ? "auto" : "none",
           }}
         >
           <TerminalGrid
@@ -39,9 +41,11 @@ export default memo(function WorkspaceView() {
             panes={workspace.panes}
             splitRows={workspace.splitRows}
             splitLayout={workspace.splitLayout}
+            isVisible={isVisible}
           />
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 });

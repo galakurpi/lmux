@@ -32,8 +32,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::terminal::create_session,
             commands::terminal::write_to_session,
+            commands::terminal::rename_agent_session_for_terminal,
             commands::terminal::resize_session,
             commands::terminal::kill_session,
+            commands::terminal::copy_text_to_clipboard,
             commands::terminal::get_terminal_config,
             commands::terminal::get_all_cwds,
             commands::notification::send_desktop_notification,

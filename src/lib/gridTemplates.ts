@@ -9,6 +9,26 @@ export const GRID_TEMPLATES: Record<GridTemplateId, GridTemplate> = {
   "2x3": { id: "2x3", label: "2x3 Grid", rows: 3, cols: 2, paneCount: 6 },
   "3x3": { id: "3x3", label: "3x3 Grid", rows: 3, cols: 3, paneCount: 9 },
   "4x4": { id: "4x4", label: "4x4 Grid", rows: 4, cols: 4, paneCount: 16 },
+  "ceo": {
+    id: "ceo",
+    label: "CEO",
+    rows: 4,
+    cols: 3,
+    paneCount: 11,
+    previewCells: [
+      { x: 0, y: 0, w: 32.8, h: 25.5 },
+      { x: 33.6, y: 0, w: 32.8, h: 51.5, label: "CEO" },
+      { x: 67.2, y: 0, w: 32.8, h: 25.5 },
+      { x: 0, y: 26.5, w: 32.8, h: 25.5 },
+      { x: 67.2, y: 26.5, w: 32.8, h: 25.5 },
+      { x: 0, y: 53, w: 32.8, h: 22.5 },
+      { x: 33.6, y: 53, w: 32.8, h: 22.5 },
+      { x: 67.2, y: 53, w: 32.8, h: 22.5 },
+      { x: 0, y: 76.5, w: 32.8, h: 23.5 },
+      { x: 33.6, y: 76.5, w: 32.8, h: 23.5 },
+      { x: 67.2, y: 76.5, w: 32.8, h: 23.5 },
+    ],
+  },
 };
 
 export function getGridTemplate(id: GridTemplateId): GridTemplate {

@@ -9,16 +9,25 @@ def port_file() -> str:
     return os.path.expanduser("~/.lmux/ptr.port")
 
 
+def socket_target() -> tuple[str, int]:
+    host = os.environ.get("LMUX_SOCKET_HOST", "127.0.0.1")
+    port = os.environ.get("LMUX_SOCKET_PORT")
+    if port:
+        return host, int(port)
+
+    with open(port_file(), "r", encoding="utf-8") as f:
+        return host, int(f.read().strip())
+
+
 def send_line(line: str, quiet: bool = False) -> int:
     try:
-        with open(port_file(), "r", encoding="utf-8") as f:
-            port = int(f.read().strip())
+        host, port = socket_target()
     except Exception as exc:
         print(f"lmuxctl: Lmux socket is not available: {exc}", file=sys.stderr)
         return 1
 
     try:
-        with socket.create_connection(("127.0.0.1", port), timeout=3) as sock:
+        with socket.create_connection((host, port), timeout=3) as sock:
             sock.sendall(line.encode("utf-8") + b"\n")
             sock.shutdown(socket.SHUT_WR)
             response = sock.makefile("r", encoding="utf-8").readline().strip()
@@ -33,6 +42,31 @@ def send_line(line: str, quiet: bool = False) -> int:
 
 def command_json(cmd: str, args: dict) -> str:
     return json.dumps({"cmd": cmd, "args": args}, separators=(",", ":"))
+
+
+def request_line(line: str) -> str:
+    try:
+        host, port = socket_target()
+        with socket.create_connection((host, port), timeout=3) as sock:
+            sock.sendall(line.encode("utf-8") + b"\n")
+            sock.shutdown(socket.SHUT_WR)
+            return sock.makefile("r", encoding="utf-8").readline().strip()
+    except Exception:
+        return ""
+
+
+def current_pane_status() -> str:
+    target = os.environ.get("LMUX_SURFACE_ID", "")
+    if not target:
+        return ""
+    try:
+        items = json.loads(request_line("pane.list")).get("result") or []
+    except Exception:
+        return ""
+    for item in items:
+        if item.get("surface_id") == target or item.get("session_id") == target:
+            return item.get("status") or ""
+    return ""
 
 
 def current_target() -> tuple[str | None, str | None]:
@@ -103,6 +137,9 @@ def hook_message(payload: dict) -> str:
 
 
 def lifecycle_hook(agent_label: str, argv: list[str]) -> int:
+    if not os.environ.get("LMUX_SURFACE_ID"):
+        return 0
+
     event = argv[0] if argv else os.environ.get("hook_event_name", "")
     try:
         payload = json.load(sys.stdin)
@@ -147,15 +184,19 @@ def lifecycle_hook(agent_label: str, argv: list[str]) -> int:
     if lowered in working_events:
         return status(["working", f"{agent_label} in {project}"], quiet=quiet)
     if lowered in waiting_events:
-        status(["waiting", message or f"{agent_label} needs input"], quiet=quiet)
-        return notify([
-            "--title", agent_label,
-            "--subtitle", "Needs input",
-            "--body", message or "Waiting for approval or input",
-        ], quiet=quiet)
+        # Status badge only — the single desktop notification fires when the
+        # run ends. Claude fires both Notification and PermissionRequest for
+        # one permission prompt, so notifying here always double-fires.
+        return status(["waiting", message or f"{agent_label} needs input"], quiet=quiet)
     if lowered in {"subagentstop", "subagent-stop"}:
-        return status(["done", message or f"{agent_label} subagent finished in {project}"], quiet=quiet)
+        # The main agent keeps running after a subagent finishes; marking the
+        # pane "done" here would swallow the real end-of-run notification.
+        return status(["working", f"{agent_label} in {project}"], quiet=quiet)
     if lowered in done_events:
+        # Dedupe: Stop / SessionEnd / AfterAgent / process exit can stack for
+        # one run. Only the first transition to "done" notifies.
+        if current_pane_status() == "done":
+            return 0
         status(["done", message or f"Completed in {project}"], quiet=quiet)
         return notify([
             "--title", agent_label,

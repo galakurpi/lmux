@@ -32,6 +32,13 @@ export async function writeToSession(
   return invoke("write_to_session", { sessionId, data });
 }
 
+export async function renameAgentSessionForTerminal(
+  sessionId: string,
+  label: string,
+): Promise<{ renamed: boolean; agent?: string; thread_id?: string }> {
+  return invoke("rename_agent_session_for_terminal", { sessionId, label });
+}
+
 export async function resizeSession(
   sessionId: string,
   cols: number,
@@ -42,6 +49,10 @@ export async function resizeSession(
 
 export async function killSession(sessionId: string): Promise<void> {
   return invoke("kill_session", { sessionId });
+}
+
+export async function copyTextToClipboard(text: string): Promise<void> {
+  return invoke("copy_text_to_clipboard", { text });
 }
 
 export function onPtyExit(
@@ -156,6 +167,13 @@ export async function sendDesktopNotification(
   title: string,
   body?: string,
   sound = true,
+  target?: { workspaceId: string; surfaceId: string },
 ): Promise<void> {
-  return invoke("send_desktop_notification", { title, body: body ?? null, sound });
+  return invoke("send_desktop_notification", {
+    title,
+    body: body ?? null,
+    sound,
+    workspaceId: target?.workspaceId ?? null,
+    surfaceId: target?.surfaceId ?? null,
+  });
 }

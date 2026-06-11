@@ -1,7 +1,10 @@
-use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
@@ -39,15 +42,12 @@ pub fn socket_response(
     Ok(())
 }
 
-async fn handle_connection(
-    stream: TcpStream,
-    app: AppHandle,
-) {
+async fn handle_connection(stream: TcpStream, app: AppHandle) {
     let state = app.state::<SocketState>();
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
-    
+
     loop {
         line.clear();
         match reader.read_line(&mut line).await {
@@ -57,7 +57,7 @@ async fn handle_connection(
                 if trimmed.is_empty() {
                     continue;
                 }
-                
+
                 if let Some((cmd, args)) = parse_socket_line(trimmed) {
                     let id = state.next_id.fetch_add(1, Ordering::SeqCst);
                     let (tx, rx) = oneshot::channel();
@@ -95,7 +95,11 @@ async fn handle_connection(
 fn parse_socket_line(line: &str) -> Option<(String, Value)> {
     if let Ok(mut parsed) = serde_json::from_str::<Value>(line) {
         let obj = parsed.as_object_mut()?;
-        let cmd = obj.get("cmd").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let cmd = obj
+            .get("cmd")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let args = obj.remove("args").unwrap_or(Value::Null);
         return Some((cmd, args));
     }
@@ -137,7 +141,8 @@ fn parse_socket_line(line: &str) -> Option<(String, Value)> {
                 "surface_id": status_parts.next().unwrap_or("").trim(),
             })
         }
-        _ => return None,
+        _ if rest.is_empty() => Value::Null,
+        _ => serde_json::from_str(rest).unwrap_or_else(|_| serde_json::json!({ "text": rest })),
     };
 
     Some((cmd.to_string(), args))
@@ -163,25 +168,25 @@ fn cleanup_legacy_socket() {
 pub fn start_socket_listener(app: AppHandle) {
     // Clean up legacy Unix socket if migrating
     cleanup_legacy_socket();
-    
+
     let port_file = get_port_file_path();
-    
+
     tauri::async_runtime::spawn(async move {
         // Bind to localhost with port 0 to get a random available port
         match TcpListener::bind("127.0.0.1:0").await {
             Ok(listener) => {
                 let addr = listener.local_addr().expect("Failed to get local address");
                 let port = addr.port();
-                
+
                 // Write port to file for CLI tools to discover
                 if let Err(e) = std::fs::write(&port_file, port.to_string()) {
                     eprintln!("Failed to write port file: {}", e);
                     return;
                 }
-                
+
                 println!("Socket listening on 127.0.0.1:{}", port);
                 println!("Port file: {:?}", port_file);
-                
+
                 loop {
                     if let Ok((stream, peer_addr)) = listener.accept().await {
                         // Only accept connections from localhost for security
@@ -189,7 +194,7 @@ pub fn start_socket_listener(app: AppHandle) {
                             eprintln!("Rejected non-localhost connection from {}", peer_addr);
                             continue;
                         }
-                        
+
                         let app_clone = app.clone();
                         tauri::async_runtime::spawn(async move {
                             handle_connection(stream, app_clone).await;

@@ -6,11 +6,14 @@ import {
   useWorkspaceLayoutStore,
   useUiStore,
   usePaneMetadataStore,
+  useTerminalScreenStore,
 } from "../../stores/workspaceStore";
-import { sendSocketResponse } from "../../lib/ipc";
+import { killSession, sendSocketResponse, writeToSession } from "../../lib/ipc";
 import { useThemeStore } from "../../stores/themeStore";
 import { addPaneNotification, parseNotificationPayload } from "../../lib/notifications";
 import type { AgentStatus } from "../../stores/paneMetadataStoreCompat";
+import { getTerminalPerfStats, resetTerminalPerfStats } from "../../lib/perfTelemetry";
+import { flushRegisteredTerminalOutput, writeRegisteredTerminalInput } from "../../lib/terminalInputRegistry";
 
 interface SocketRequest {
   id: number;
@@ -18,7 +21,43 @@ interface SocketRequest {
   args: any;
 }
 
+interface DesktopNotificationActivated {
+  workspace_id: string;
+  surface_id: string;
+}
+
 export default function SocketListener() {
+  useEffect(() => {
+    const unlisten = listen<DesktopNotificationActivated>("desktop-notification-activated", (event) => {
+      const { workspace_id, surface_id } = event.payload;
+      const listStore = useWorkspaceListStore.getState();
+      const layoutStore = useWorkspaceLayoutStore.getState();
+      const uiStore = useUiStore.getState();
+      const metadataStore = usePaneMetadataStore.getState();
+      const workspace = listStore.workspaces.find((w) => w.id === workspace_id);
+      if (!workspace) return;
+
+      for (const pane of workspace.panes) {
+        const tab = pane.tabs.find((t) => t.sessionId === surface_id || t.id === surface_id);
+        if (!tab) continue;
+        listStore.setActiveWorkspace(workspace.id);
+        layoutStore.setActivePaneTab(workspace.id, pane.id, tab.id);
+        uiStore.setActivePaneId(tab.sessionId);
+        metadataStore.clearNotification(tab.sessionId);
+        setTimeout(() => {
+          const el = document.querySelector<HTMLElement>(`[data-session-id="${tab.sessionId}"]`);
+          const textarea = el?.querySelector<HTMLTextAreaElement>("textarea");
+          if (textarea) textarea.focus(); else el?.focus();
+        }, 0);
+        return;
+      }
+    });
+
+    return () => {
+      void unlisten.then((fn) => fn());
+    };
+  }, []);
+
   useEffect(() => {
     const unlisten = listen<SocketRequest>("socket-request", async (event) => {
       const { id, cmd, args } = event.payload;
@@ -30,11 +69,15 @@ export default function SocketListener() {
         const layoutStore = useWorkspaceLayoutStore.getState();
         const uiStore = useUiStore.getState();
         const metadataStore = usePaneMetadataStore.getState();
-
         const activeWorkspace = () => listStore.workspaces.find((w) => w.id === listStore.activeWorkspaceId);
+        const paneMatchesSession = (pane: any, sessionId: string | null) =>
+          Boolean(sessionId) && (
+            pane.sessionId === sessionId ||
+            pane.tabs.some((t: any) => t.sessionId === sessionId || t.id === sessionId)
+          );
         const activeSessionId = () => {
           const ws = activeWorkspace();
-          const pane = ws?.panes.find((p) => p.sessionId === uiStore.activePaneId) ?? ws?.panes[0];
+          const pane = ws?.panes.find((p) => paneMatchesSession(p, uiStore.activePaneId)) ?? ws?.panes[0];
           const activeTab = pane?.tabs.find((t) => t.id === pane.activeTabId);
           return activeTab?.sessionId ?? pane?.sessionId ?? null;
         };
@@ -42,7 +85,7 @@ export default function SocketListener() {
           const ws = listStore.workspaces.find((w) => w.id === workspaceId);
           if (!ws) return null;
           if (!surfaceId) {
-            const pane = ws.panes.find((p) => p.sessionId === uiStore.activePaneId) ?? ws.panes[0];
+            const pane = ws.panes.find((p) => paneMatchesSession(p, uiStore.activePaneId)) ?? ws.panes[0];
             const activeTab = pane?.tabs.find((t) => t.id === pane.activeTabId);
             return activeTab?.sessionId ?? pane?.sessionId ?? null;
           }
@@ -53,7 +96,10 @@ export default function SocketListener() {
             return activeTab?.sessionId ?? pane.sessionId;
           }
           for (const pane of ws.panes) {
-            if (pane.sessionId === surfaceId || pane.id === surfaceId) return pane.sessionId;
+            if (pane.sessionId === surfaceId || pane.id === surfaceId) {
+              const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
+              return activeTab?.sessionId ?? pane.sessionId;
+            }
             const tab = pane.tabs.find((t) => t.sessionId === surfaceId || t.id === surfaceId);
             if (tab) return tab.sessionId;
           }
@@ -70,8 +116,187 @@ export default function SocketListener() {
           addPaneNotification(sessionId, notification, { desktop: true, sound: true });
           result = { success: true, surface_id: sessionId };
         };
+        const normalizeUrl = (raw: string) => {
+          const url = raw.trim();
+          if (!url) return "about:blank";
+          if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:")) return url;
+          return `https://${url}`;
+        };
+        const resolveSurface = (input: any = args) => {
+          const workspaceId = input?.workspace_id ?? input?.workspaceId ?? listStore.activeWorkspaceId;
+          const workspace = workspaceId
+            ? listStore.workspaces.find((w) => w.id === workspaceId)
+            : activeWorkspace();
+          if (!workspace) return null;
+
+          const surfaceId =
+            input?.surface_id ??
+            input?.surfaceId ??
+            input?.session_id ??
+            input?.sessionId ??
+            input?.pane_id ??
+            input?.paneId ??
+            input?.id;
+
+          if (!surfaceId) {
+            const pane = workspace.panes.find((p) => paneMatchesSession(p, uiStore.activePaneId)) ?? workspace.panes[0];
+            const tab = pane?.tabs.find((t) => t.id === pane.activeTabId) ?? pane?.tabs[0];
+            return pane && tab ? { workspace, pane, tab, sessionId: tab.sessionId } : null;
+          }
+
+          const index = Number(surfaceId);
+          if (Number.isInteger(index) && index >= 0 && index < workspace.panes.length) {
+            const pane = workspace.panes[index];
+            const tab = pane.tabs.find((t) => t.id === pane.activeTabId) ?? pane.tabs[0];
+            return tab ? { workspace, pane, tab, sessionId: tab.sessionId } : null;
+          }
+
+          for (const pane of workspace.panes) {
+            if (pane.id === surfaceId || pane.sessionId === surfaceId) {
+              const tab = pane.tabs.find((t) => t.id === pane.activeTabId) ?? pane.tabs[0];
+              return tab ? { workspace, pane, tab, sessionId: tab.sessionId } : null;
+            }
+            const tab = pane.tabs.find((t) => t.id === surfaceId || t.sessionId === surfaceId);
+            if (tab) return { workspace, pane, tab, sessionId: tab.sessionId };
+          }
+          return null;
+        };
+        const serializeSurface = (workspace: any, pane: any, tab: any) => {
+          const meta = metadataStore.metadata[tab.sessionId] ?? {};
+          return {
+            workspace_id: workspace.id,
+            workspace_name: workspace.name,
+            pane_id: pane.id,
+            pane_index: workspace.panes.indexOf(pane),
+            pane_label: pane.label ?? null,
+            surface_id: tab.sessionId,
+            session_id: tab.sessionId,
+            tab_id: tab.id,
+            type: tab.type ?? "terminal",
+            agent_id: tab.agentId ?? pane.agentId,
+            active_in_pane: pane.activeTabId === tab.id,
+            focused: uiStore.activePaneId === tab.sessionId,
+            status: meta.agentStatus ?? "idle",
+            progress: meta.progress ?? null,
+            progress_label: meta.progressLabel ?? null,
+            last_log_line: meta.lastLogLine ?? null,
+            notification_count: meta.notificationCount ?? 0,
+            last_notification_at: meta.lastNotificationAt ?? null,
+            cwd: meta.cwd ?? pane.cwd ?? null,
+            git_branch: meta.gitBranch ?? pane.gitBranch ?? null,
+            process_title: meta.processTitle ?? null,
+          };
+        };
+        const focusSurface = (workspace: any, pane: any, tab: any) => {
+          listStore.setActiveWorkspace(workspace.id);
+          layoutStore.setActivePaneTab(workspace.id, pane.id, tab.id);
+          uiStore.setActivePaneId(tab.sessionId);
+          metadataStore.clearNotification(tab.sessionId);
+          setTimeout(() => {
+            const el = document.querySelector<HTMLElement>(`[data-session-id="${tab.sessionId}"]`);
+            const textarea = el?.querySelector<HTMLTextAreaElement>("textarea");
+            if (textarea) textarea.focus(); else el?.focus();
+          }, 0);
+          return { success: true, ...serializeSurface(workspace, pane, tab) };
+        };
+        const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+        const findLatestUnreadOrFinished = () => {
+          let unread: { workspace: any; pane: any; tab: any; at: number } | null = null;
+          let finished: { workspace: any; pane: any; tab: any; at: number } | null = null;
+
+          for (const workspace of listStore.workspaces) {
+            for (const pane of workspace.panes) {
+              for (const tab of pane.tabs) {
+                const meta = metadataStore.metadata[tab.sessionId];
+                if (!meta) continue;
+                if ((meta.notificationCount ?? 0) > 0) {
+                  const at = meta.lastNotificationAt ?? 0;
+                  if (!unread || at >= unread.at) unread = { workspace, pane, tab, at };
+                }
+                if (meta.agentStatus === "done" && meta.lastFinishedAt) {
+                  const at = meta.lastFinishedAt;
+                  if (!finished || at >= finished.at) finished = { workspace, pane, tab, at };
+                }
+              }
+            }
+          }
+
+          return unread ?? finished;
+        };
         
         switch (cmd) {
+          case "debug.perf":
+          case "perf.stats":
+            result = getTerminalPerfStats();
+            break;
+
+          case "debug.perf.reset":
+          case "perf.reset":
+            resetTerminalPerfStats();
+            result = { success: true };
+            break;
+
+          case "debug.perf.input-benchmark":
+          case "perf.input-benchmark": {
+            const target = resolveSurface();
+            if (!target) {
+              error = "Pane target not found";
+              break;
+            }
+
+            const chars = Math.max(1, Number(args?.chars ?? 900));
+            const delayMs = Math.max(0, Number(args?.delay_ms ?? args?.delayMs ?? 1));
+            const stamp = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+            const prefix = `lmuxbenchstart${stamp} `;
+            const suffix = ` lmuxbenchend${stamp}`;
+            const phrase = "typing latency benchmark ddddd quick normal words ";
+            const bodyLength = Math.max(0, chars - prefix.length - suffix.length);
+            const body = phrase.repeat(Math.ceil(bodyLength / phrase.length)).slice(0, bodyLength);
+            const payload = `${prefix}${body}${suffix}`;
+            const marker = "lmuxbenchend";
+
+            if (!writeRegisteredTerminalInput(target.sessionId, "\x15")) {
+              error = "Input writer not registered for pane";
+              break;
+            }
+            await sleep(80);
+
+            resetTerminalPerfStats();
+            const started = performance.now();
+            for (const char of payload) {
+              writeRegisteredTerminalInput(target.sessionId, char);
+              if (delayMs > 0) await sleep(delayMs);
+            }
+            const injectedAt = performance.now();
+
+            let visibleAt: number | null = null;
+            let screenText = "";
+            for (let i = 0; i < 100; i++) {
+              screenText = useTerminalScreenStore.getState().screens[target.sessionId]?.text ?? "";
+              if (screenText.includes(marker)) {
+                visibleAt = performance.now();
+                break;
+              }
+              await sleep(50);
+            }
+
+            result = {
+              success: true,
+              chars: payload.length,
+              delay_ms: delayMs,
+              workspace_id: target.workspace.id,
+              surface_id: target.sessionId,
+              injected_ms: injectedAt - started,
+              visible_ms: visibleAt === null ? null : visibleAt - started,
+              visible: visibleAt !== null,
+              stats: getTerminalPerfStats(),
+              screen_tail: screenText.slice(-240),
+            };
+
+            writeRegisteredTerminalInput(target.sessionId, "\x15");
+            break;
+          }
+
           case "workspace.list":
             result = listStore.workspaces.map(w => ({
               id: w.id,
@@ -106,6 +331,14 @@ export default function SocketListener() {
             
           case "workspace.close":
             if (args?.id) {
+              const workspace = listStore.workspaces.find((w) => w.id === args.id);
+              if (workspace) {
+                await Promise.allSettled(
+                  workspace.panes.flatMap((pane) =>
+                    pane.tabs.map((tab) => killSession(tab.sessionId))
+                  )
+                );
+              }
               listStore.removeWorkspace(args.id);
               result = { success: true };
             } else {
@@ -113,31 +346,134 @@ export default function SocketListener() {
             }
             break;
 
-          case "pane.split-right":
-            if (listStore.activeWorkspaceId && uiStore.activePaneId) {
-              layoutStore.addPaneToWorkspace(listStore.activeWorkspaceId, uiStore.activePaneId, "right");
+          case "workspace.rename":
+            if (args?.id && args?.name) {
+              listStore.renameWorkspace(args.id, String(args.name));
               result = { success: true };
             } else {
-              error = "No active pane to split";
+              error = "Missing id or name argument";
             }
             break;
 
-          case "pane.split-down":
-            if (listStore.activeWorkspaceId && uiStore.activePaneId) {
-              layoutStore.addPaneToWorkspace(listStore.activeWorkspaceId, uiStore.activePaneId, "down");
+          case "pane.list": {
+            const workspaceId = args?.workspace_id ?? args?.workspaceId;
+            const workspaces = workspaceId
+              ? listStore.workspaces.filter((w) => w.id === workspaceId)
+              : listStore.workspaces;
+            result = workspaces.flatMap((workspace) =>
+              workspace.panes.flatMap((pane) =>
+                pane.tabs.map((tab) => serializeSurface(workspace, pane, tab))
+              )
+            );
+            break;
+          }
+
+          case "pane.focus": {
+            const target = resolveSurface();
+            if (!target) {
+              error = "Pane target not found";
+              break;
+            }
+            result = focusSurface(target.workspace, target.pane, target.tab);
+            break;
+          }
+
+          case "pane.focus.latestUnread":
+          case "pane.focus_latest_unread": {
+            const target = findLatestUnreadOrFinished();
+            if (!target) {
+              error = "No unread or finished pane found";
+              break;
+            }
+            result = focusSurface(target.workspace, target.pane, target.tab);
+            break;
+          }
+
+          case "pane.write": {
+            const target = resolveSurface();
+            const text = args?.text ?? args?.data ?? args?.input;
+            if (!target) {
+              error = "Pane target not found";
+              break;
+            }
+            if (typeof text !== "string") {
+              error = "Missing text argument";
+              break;
+            }
+            const data = args?.enter || args?.submit || args?.newline
+              ? text.endsWith("\n") ? text : `${text}\n`
+              : text;
+            await writeToSession(target.sessionId, data);
+            result = { success: true, surface_id: target.sessionId, bytes: data.length };
+            break;
+          }
+
+          case "pane.read-screen": {
+            const target = resolveSurface();
+            if (!target) {
+              error = "Pane target not found";
+              break;
+            }
+            await flushRegisteredTerminalOutput(target.sessionId);
+            const screen = useTerminalScreenStore.getState().screens[target.sessionId];
+            const maxLines = Number(args?.max_lines ?? args?.maxLines ?? 200);
+            const lines = screen?.text ? screen.text.split("\n") : [];
+            const text = Number.isFinite(maxLines) && maxLines > 0
+              ? lines.slice(-maxLines).join("\n")
+              : lines.join("\n");
+            result = {
+              success: true,
+              surface_id: target.sessionId,
+              available: Boolean(screen),
+              text,
+              rows: screen?.rows ?? null,
+              cols: screen?.cols ?? null,
+              updated_at: screen?.updatedAt ?? null,
+            };
+            break;
+          }
+
+          case "pane.kill": {
+            const target = resolveSurface();
+            if (!target) {
+              error = "Pane target not found";
+              break;
+            }
+            await killSession(target.sessionId);
+            metadataStore.setAgentStatus(target.sessionId, "idle");
+            result = { success: true, surface_id: target.sessionId };
+            break;
+          }
+
+          case "pane.split-right": {
+            const target = resolveSurface();
+            if (target) {
+              layoutStore.addPaneToWorkspace(target.workspace.id, target.pane.id, "right");
               result = { success: true };
             } else {
               error = "No active pane to split";
             }
             break;
+          }
+
+          case "pane.split-down": {
+            const target = resolveSurface();
+            if (target) {
+              layoutStore.addPaneToWorkspace(target.workspace.id, target.pane.id, "down");
+              result = { success: true };
+            } else {
+              error = "No active pane to split";
+            }
+            break;
+          }
 
           case "pane.close": {
-            const wsId = listStore.activeWorkspaceId;
-            const paneId = uiStore.activePaneId;
-            if (wsId && paneId) {
-              const ws = listStore.workspaces.find((w) => w.id === wsId);
-              const pane = ws?.panes.find((p) => p.sessionId === paneId);
-              layoutStore.removePaneFromWorkspace(wsId, paneId);
+            const target = resolveSurface();
+            if (target) {
+              const ws = target.workspace;
+              const pane = target.pane;
+              await Promise.allSettled(pane.tabs.map((tab: any) => killSession(tab.sessionId)));
+              layoutStore.removePaneFromWorkspace(ws.id, pane.id);
               // Focus a remaining pane
               if (ws && pane) {
                 const remaining = ws.panes.filter((p) => p.id !== pane.id);
@@ -154,7 +490,28 @@ export default function SocketListener() {
             break;
           }
 
+          case "pane.rename": {
+            const target = resolveSurface();
+            const label = args?.label ?? args?.name;
+            if (!target) {
+              error = "Pane target not found";
+            } else if (typeof label !== "string") {
+              error = "Missing label argument";
+            } else {
+              const agentRenames = await layoutStore.renamePane(target.workspace.id, target.pane.id, label);
+              result = {
+                success: true,
+                workspace_id: target.workspace.id,
+                pane_id: target.pane.id,
+                label: label.trim() || null,
+                agent_renames: agentRenames,
+              };
+            }
+            break;
+          }
+
           case "notify":
+          case "notify.send":
           case "notification.create":
           case "notification.create_for_caller": {
             const sessionId = args?.surface_id
@@ -219,6 +576,7 @@ export default function SocketListener() {
           }
 
           case "clear_notifications":
+          case "notify.clear":
           case "notification.clear": {
             const workspaceId = args?.workspace_id;
             const surfaceId = args?.surface_id;
@@ -236,11 +594,10 @@ export default function SocketListener() {
           }
 
           case "set_status":
+          case "status.set":
           case "agent.status": {
-            const workspaceId = args?.workspace_id || listStore.activeWorkspaceId;
-            const sessionId = args?.surface_id && workspaceId
-              ? sessionInWorkspace(workspaceId, args.surface_id)
-              : activeSessionId();
+            const target = resolveSurface();
+            const sessionId = target?.sessionId ?? activeSessionId();
             const status = String(args?.status || args?.state || "idle").toLowerCase();
             if (!sessionId) {
               error = "Status target not found";
@@ -256,17 +613,100 @@ export default function SocketListener() {
           }
 
           case "clear_status":
+          case "status.clear":
           case "agent.clear_status": {
-            const workspaceId = args?.workspace_id || listStore.activeWorkspaceId;
-            const sessionId = args?.surface_id && workspaceId
-              ? sessionInWorkspace(workspaceId, args.surface_id)
-              : activeSessionId();
+            const target = resolveSurface();
+            const sessionId = target?.sessionId ?? activeSessionId();
             if (!sessionId) {
               error = "Status target not found";
               break;
             }
             metadataStore.setAgentStatus(sessionId, "idle");
             result = { success: true, surface_id: sessionId };
+            break;
+          }
+
+          case "progress.set": {
+            const target = resolveSurface();
+            if (!target) {
+              error = "Progress target not found";
+              break;
+            }
+            const raw = Number(args?.value ?? args?.progress ?? 0);
+            if (!Number.isFinite(raw)) {
+              error = "Invalid progress value";
+              break;
+            }
+            const progress = Math.max(0, Math.min(1, raw > 1 ? raw / 100 : raw));
+            metadataStore.setMetadata(target.sessionId, {
+              progress,
+              progressLabel: args?.label ?? args?.message,
+              lastProgressAt: Date.now(),
+            });
+            result = { success: true, surface_id: target.sessionId, progress };
+            break;
+          }
+
+          case "progress.clear": {
+            const target = resolveSurface();
+            if (!target) {
+              error = "Progress target not found";
+              break;
+            }
+            metadataStore.setMetadata(target.sessionId, {
+              progress: undefined,
+              progressLabel: undefined,
+              lastProgressAt: Date.now(),
+            });
+            result = { success: true, surface_id: target.sessionId };
+            break;
+          }
+
+          case "browser.open": {
+            const workspaceId = args?.workspace_id ?? args?.workspaceId ?? listStore.activeWorkspaceId;
+            const workspace = workspaceId ? listStore.workspaces.find((w) => w.id === workspaceId) : activeWorkspace();
+            if (!workspace) {
+              error = "No active workspace";
+              break;
+            }
+
+            const target = resolveSurface({ ...args, workspace_id: workspace.id });
+            const pane = target?.pane ?? workspace.panes[0];
+            if (!pane) {
+              error = "No pane available for browser";
+              break;
+            }
+
+            const previousActiveTabId = pane.activeTabId;
+            const previousActivePaneId = uiStore.activePaneId;
+            const tab = layoutStore.addTabToPane(workspace.id, pane.id, pane.agentId, "browser");
+            if (!tab) {
+              error = "Failed to create browser surface";
+              break;
+            }
+
+            if (args?.focus === false) {
+              layoutStore.setActivePaneTab(workspace.id, pane.id, previousActiveTabId);
+              uiStore.setActivePaneId(previousActivePaneId);
+            } else {
+              uiStore.setActivePaneId(tab.sessionId);
+            }
+
+            if (args?.url) {
+              const url = normalizeUrl(String(args.url));
+              window.setTimeout(() => {
+                invoke("browser_navigate", { sessionId: tab.sessionId, url }).catch(() => {});
+              }, 250);
+            }
+
+            result = {
+              success: true,
+              workspace_id: workspace.id,
+              pane_id: pane.id,
+              surface_id: tab.sessionId,
+              session_id: tab.sessionId,
+              type: "browser",
+            };
             break;
           }
 
@@ -279,7 +719,8 @@ export default function SocketListener() {
           case "browser.wait": {
             // Find the target browser pane session ID
             const targetPaneId = (() => {
-              if (args?.pane_id) return args.pane_id as string;
+              const explicitTarget = resolveSurface();
+              if (explicitTarget && (explicitTarget.tab.type ?? "terminal") === "browser") return explicitTarget.sessionId;
               const activeWs = listStore.workspaces.find(
                 (w) => w.id === listStore.activeWorkspaceId
               );

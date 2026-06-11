@@ -26,16 +26,26 @@ TCP socket API on localhost exposing a JSON-RPC API for external control, plus a
 | CLI | `ptr` binary reads port file, connects via TCP |
 | Protocol | JSON messages: `{"cmd": "workspace.new", "args": {...}}` |
 
-## Suggested Command Set (Phase 1)
+## Command Set
 
 ```
-workspace.list    workspace.new     workspace.select
+workspace.list    workspace.new       workspace.select
 workspace.close   workspace.rename
-pane.split-right  pane.split-down   pane.close
-pane.focus        pane.write        pane.list
-notify.send       notify.clear
-theme.set         theme.list
+pane.list         pane.focus          pane.write
+pane.read-screen  pane.kill           pane.split-right
+pane.split-down   pane.close
+notify.send       notify.clear        notification.list
+status.set        status.clear        progress.set
+progress.clear    browser.open        browser.navigate
+browser.snapshot  browser.eval        browser.click
+browser.fill      browser.wait        browser.status
+theme.set
 ```
+
+The drop-in agent skill lives at `skills/lmux/SKILL.md`. It follows the same
+shape as the external cmux skill: teach workspace/pane/surface concepts, prefer
+explicit surface targeting, avoid stealing focus, and use pane inspection plus
+status/progress/notification commands for lightweight coordination.
 
 ## Key Decisions
 
@@ -43,7 +53,7 @@ theme.set         theme.list
 - **Port discovery**: Random port, written to `~/.lmux/ptr.port`
 - **Protocol**: Simple JSON-RPC over TCP, newline-delimited messages
 - **Security**: Only accepts connections from loopback addresses
-- **Streaming**: Optional for `pane.output` command (subscribe to PTY output)
+- **Screen reads**: `pane.read-screen` returns the latest xterm buffer snapshot captured in the frontend
 
 ## Priority: **Medium**
 

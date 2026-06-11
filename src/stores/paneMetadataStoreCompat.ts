@@ -14,6 +14,9 @@ export interface PaneMetadata {
   gitBranch?: string;
   processTitle?: string;
   agentStatus?: AgentStatus;
+  progress?: number;
+  progressLabel?: string;
+  lastProgressAt?: number;
 }
 
 export interface PaneMetadataState {
@@ -32,39 +35,29 @@ export const usePaneMetadataStore = create<PaneMetadataState>((set) => ({
   flashingPaneIds: new Set(),
   
   setMetadata: (sessionId, data) => set((state) => {
-    const start = performance.now();
     const prev = state.metadata[sessionId];
-    // Skip update if nothing actually changed
     if (prev) {
       const keys = Object.keys(data) as (keyof PaneMetadata)[];
       const changed = keys.some((k) => prev[k] !== data[k]);
-      if (!changed) {
-        console.log(`[PERF] setMetadata skipped (no changes) - ${(performance.now() - start).toFixed(2)}ms`);
-        return state;
-      }
+      if (!changed) return state;
     }
-    const result = {
+    return {
       metadata: {
         ...state.metadata,
         [sessionId]: { ...prev, ...data },
       },
     };
-    console.log(`[PERF] setMetadata completed - ${(performance.now() - start).toFixed(2)}ms`);
-    return result;
   }),
   
   incrementNotification: (sessionId) => set((state) => {
-    const start = performance.now();
     const prev = state.metadata[sessionId];
     const oldCount = prev?.notificationCount || 0;
-    const result = {
+    return {
       metadata: {
         ...state.metadata,
         [sessionId]: { ...prev, notificationCount: oldCount + 1, lastNotificationAt: Date.now() },
       },
     };
-    console.log(`[PERF] incrementNotification (${oldCount} -> ${oldCount + 1}) - ${(performance.now() - start).toFixed(2)}ms`);
-    return result;
   }),
 
   addNotification: (sessionId, title, body) => set((state) => {

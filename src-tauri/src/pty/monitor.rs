@@ -71,7 +71,9 @@ pub fn start_monitor(app_handle: AppHandle, manager: Arc<SessionManager>) {
                             let children_path = format!("/proc/{pid}/task/{pid}/children");
                             if let Ok(children) = fs::read_to_string(&children_path) {
                                 // Get the last child (foreground process)
-                                children.split_whitespace().last()
+                                children
+                                    .split_whitespace()
+                                    .last()
                                     .and_then(|child_pid| {
                                         fs::read_to_string(format!("/proc/{child_pid}/comm")).ok()
                                     })
@@ -95,7 +97,11 @@ pub fn start_monitor(app_handle: AppHandle, manager: Arc<SessionManager>) {
                         };
 
                         let changed = match last_metadata.get(&session_id) {
-                            Some(old) => old.cwd != cwd || old.git_branch != git_branch || old.process_name != process_name,
+                            Some(old) => {
+                                old.cwd != cwd
+                                    || old.git_branch != git_branch
+                                    || old.process_name != process_name
+                            }
                             None => true,
                         };
 

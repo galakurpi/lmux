@@ -6,7 +6,7 @@
 interface Workspace {
   id: string;
   name: string;
-  gridTemplateId: GridTemplateId;   // "1x1" | "2x1" | ... | "4x4"
+  gridTemplateId: GridTemplateId;   // "1x1" | "2x1" | ... | "4x4" | "ceo"
   panes: Pane[];
   status: "setup" | "running" | "stopped";
   createdAt: number;
@@ -26,6 +26,7 @@ interface Workspace {
 | `3x2` | 3 columns × 2 rows | 6 |
 | `2x3` | 2 columns × 3 rows | 6 |
 | `3x3` | 3×3 grid | 9 |
+| `ceo` | 11-pane command-center layout with a tall labeled CEO pane | 11 |
 | `4x4` | 4×4 grid | 16 |
 
 Template selected during workspace creation via `GridPicker` component.

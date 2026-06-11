@@ -48,3 +48,4 @@ src-tauri/WixTools/
 src-tauri/target/
 *.dmg
 *.exe
+__pycache__/

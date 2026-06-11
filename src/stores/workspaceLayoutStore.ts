@@ -4,6 +4,7 @@ import type { Pane, PaneTab, GridTemplateId, SplitLayoutNode } from "../types";
 import { getGridTemplate } from "../lib/gridTemplates";
 import { getDefaultAgent } from "../lib/agents";
 import { makeSessionId } from "../lib/constants";
+import { renameAgentSessionForTerminal } from "../lib/ipc";
 import { usePaneFontStore } from "./paneFontStore";
 import { useWorkspaceListStore } from "./workspaceListStore";
 
@@ -22,6 +23,64 @@ function makeTab(workspaceId: string, paneId: string, agentId: string, type: Pan
   };
 }
 
+function makePane(
+  workspaceId: string,
+  agentId: string,
+  label?: string,
+  color?: string,
+): Pane {
+  const paneId = uuid();
+  const tab = makeTab(workspaceId, paneId, agentId);
+  return {
+    id: paneId,
+    agentId,
+    sessionId: tab.sessionId,
+    tabs: [tab],
+    activeTabId: tab.id,
+    ...(label ? { label } : {}),
+    ...(color ? { color } : {}),
+  };
+}
+
+function sessionRenameLabel(label: string): string {
+  return label.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+interface RenameAgentSessionAttempt {
+  sessionId: string;
+  renamed: boolean;
+  agent?: string;
+  thread_id?: string;
+  error?: string;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function renameAgentSessionsInPane(pane: Pane, label: string): Promise<RenameAgentSessionAttempt[]> {
+  const sessionLabel = sessionRenameLabel(label);
+  if (!sessionLabel) return Promise.resolve([]);
+
+  return Promise.all(
+    pane.tabs
+      .filter((tab) => tab.type !== "browser")
+      .map(async (tab) => {
+        try {
+          const result = await renameAgentSessionForTerminal(tab.sessionId, sessionLabel);
+          return { sessionId: tab.sessionId, ...result };
+        } catch (err) {
+          console.warn("Failed to rename agent session", err);
+          return { sessionId: tab.sessionId, renamed: false, error: errorMessage(err) };
+        }
+      }),
+  );
+}
+
+function noAgentRenameAttempts(): Promise<RenameAgentSessionAttempt[]> {
+  return Promise.resolve([]);
+}
+
 interface BuildPanesResult {
   panes: Pane[];
   splitRows: string[][];
@@ -32,15 +91,71 @@ function paneNode(paneId: string): SplitLayoutNode {
   return { type: "pane", paneId };
 }
 
-function splitNode(direction: "horizontal" | "vertical", children: SplitLayoutNode[]): SplitLayoutNode {
+function splitNode(
+  direction: "horizontal" | "vertical",
+  children: SplitLayoutNode[],
+  sizes?: number[],
+): SplitLayoutNode {
   const compactChildren = children.filter(Boolean);
   if (compactChildren.length === 1) return compactChildren[0];
-  return { type: "split", direction, children: compactChildren };
+  return { type: "split", direction, children: compactChildren, ...(sizes ? { sizes } : {}) };
 }
 
 function layoutFromRows(rows: string[][]): SplitLayoutNode {
   const rowNodes = rows.map((row) => splitNode("horizontal", row.map(paneNode)));
   return splitNode("vertical", rowNodes);
+}
+
+function rowsFromPaneIds(paneIds: string[], gridTemplateId: GridTemplateId): string[][] {
+  const template = getGridTemplate(gridTemplateId);
+  const cols = Math.max(1, template.cols);
+  const rows: string[][] = [];
+
+  for (let i = 0; i < paneIds.length; i += cols) {
+    rows.push(paneIds.slice(i, i + cols));
+  }
+
+  return rows;
+}
+
+function ceoSplitLayoutFromPaneIds(paneIds: string[]): SplitLayoutNode {
+  const leftColumn = splitNode("vertical", [
+    paneNode(paneIds[0]),
+    paneNode(paneIds[3]),
+    paneNode(paneIds[5]),
+    paneNode(paneIds[8]),
+  ]);
+  const centerColumn = splitNode("vertical", [
+    paneNode(paneIds[1]),
+    paneNode(paneIds[6]),
+    paneNode(paneIds[9]),
+  ]);
+  const rightColumn = splitNode("vertical", [
+    paneNode(paneIds[2]),
+    paneNode(paneIds[4]),
+    paneNode(paneIds[7]),
+    paneNode(paneIds[10]),
+  ]);
+  return splitNode("horizontal", [leftColumn, centerColumn, rightColumn]);
+}
+
+function splitLayoutFromPaneIds(paneIds: string[], gridTemplateId: GridTemplateId): SplitLayoutNode {
+  if (gridTemplateId === "ceo") {
+    return ceoSplitLayoutFromPaneIds(paneIds);
+  }
+  return layoutFromRows(rowsFromPaneIds(paneIds, gridTemplateId));
+}
+
+function makeTemplatePane(workspaceId: string, gridTemplateId: GridTemplateId, index: number): Pane {
+  if (gridTemplateId === "ceo") {
+    return makePane(
+      workspaceId,
+      getDefaultAgent().id,
+      index === 1 ? "CEO" : undefined,
+      index === 1 ? "#00ff41" : "#007a24",
+    );
+  }
+  return makePane(workspaceId, getDefaultAgent().id);
 }
 
 function insertIntoLayout(
@@ -106,27 +221,31 @@ function buildPanes(
   gridTemplateId: GridTemplateId,
   agentAssignments?: Record<number, string>,
 ): BuildPanesResult {
+  if (gridTemplateId === "ceo") {
+    return buildCeoPanes(workspaceId, agentAssignments);
+  }
+
   const template = getGridTemplate(gridTemplateId);
   const defaultAgentId = getDefaultAgent().id;
+  const assignedPaneIndexes = agentAssignments
+    ? Object.keys(agentAssignments).map(Number)
+    : [];
+  const assignedPaneCount = assignedPaneIndexes.length > 0
+    ? Math.max(...assignedPaneIndexes) + 1
+    : 0;
+  const paneCount = Math.max(template.paneCount, assignedPaneCount);
   const panes: Pane[] = [];
   const splitRows: string[][] = [];
 
   let paneIndex = 0;
-  for (let r = 0; r < template.rows; r++) {
+  while (paneIndex < paneCount) {
     const row: string[] = [];
     for (let c = 0; c < template.cols; c++) {
-      if (paneIndex < template.paneCount) {
-        const paneId = uuid();
+      if (paneIndex < paneCount) {
         const agentId = agentAssignments?.[paneIndex] ?? defaultAgentId;
-        const tab = makeTab(workspaceId, paneId, agentId);
-        panes.push({
-          id: paneId,
-          agentId,
-          sessionId: tab.sessionId,
-          tabs: [tab],
-          activeTabId: tab.id,
-        });
-        row.push(paneId);
+        const pane = makePane(workspaceId, agentId);
+        panes.push(pane);
+        row.push(pane.id);
         paneIndex++;
       }
     }
@@ -138,10 +257,35 @@ function buildPanes(
   return { panes, splitRows, splitLayout: layoutFromRows(splitRows) };
 }
 
+function buildCeoPanes(
+  workspaceId: string,
+  agentAssignments?: Record<number, string>,
+): BuildPanesResult {
+  const defaultAgentId = getDefaultAgent().id;
+  const panes = Array.from({ length: 11 }, (_, index) =>
+    makePane(
+      workspaceId,
+      agentAssignments?.[index] ?? defaultAgentId,
+      index === 1 ? "CEO" : undefined,
+      index === 1 ? "#00ff41" : "#007a24",
+    )
+  );
+  const splitRows = [
+    [panes[0].id, panes[1].id, panes[2].id],
+    [panes[3].id, panes[4].id],
+    [panes[5].id, panes[6].id, panes[7].id],
+    [panes[8].id, panes[9].id, panes[10].id],
+  ];
+
+  const splitLayout = ceoSplitLayoutFromPaneIds(panes.map((pane) => pane.id));
+
+  return { panes, splitRows, splitLayout };
+}
+
 interface WorkspaceLayoutState {
   // Pane operations
   removePaneFromWorkspace: (workspaceId: string, paneId: string) => void;
-  renamePane: (workspaceId: string, paneId: string, label: string) => void;
+  renamePane: (workspaceId: string, paneId: string, label: string) => Promise<RenameAgentSessionAttempt[]>;
   setPaneColor: (workspaceId: string, paneId: string, color: string) => void;
   addPaneToWorkspace: (
     workspaceId: string,
@@ -149,9 +293,10 @@ interface WorkspaceLayoutState {
     direction: "right" | "down",
     agentId?: string
   ) => void;
+  changeWorkspaceLayout: (workspaceId: string, gridTemplateId: GridTemplateId) => void;
   
   // Tab operations
-  addTabToPane: (workspaceId: string, paneId: string, agentId?: string, type?: PaneTab["type"]) => void;
+  addTabToPane: (workspaceId: string, paneId: string, agentId?: string, type?: PaneTab["type"]) => PaneTab | undefined;
   removeTabFromPane: (workspaceId: string, paneId: string, tabId: string) => void;
   setActivePaneTab: (workspaceId: string, paneId: string, tabId: string) => void;
   
@@ -166,6 +311,30 @@ interface WorkspaceLayoutState {
 export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
   buildInitialPanes: (workspaceId, gridTemplateId, agentAssignments) => {
     return buildPanes(workspaceId, gridTemplateId, agentAssignments);
+  },
+
+  changeWorkspaceLayout: (workspaceId, gridTemplateId) => {
+    const workspace = useWorkspaceListStore.getState().getWorkspace(workspaceId);
+    if (!workspace) return;
+
+    const template = getGridTemplate(gridTemplateId);
+    if (template.paneCount < workspace.panes.length) return;
+
+    const panes = [...workspace.panes];
+    for (let index = panes.length; index < template.paneCount; index++) {
+      panes.push(makeTemplatePane(workspaceId, gridTemplateId, index));
+    }
+
+    const paneIds = panes.map((p) => p.id);
+    const splitRows = rowsFromPaneIds(paneIds, gridTemplateId);
+    const splitLayout = splitLayoutFromPaneIds(paneIds, gridTemplateId);
+    useWorkspaceListStore.getState().setWorkspaceLayout(
+      workspaceId,
+      gridTemplateId,
+      panes,
+      splitRows,
+      splitLayout,
+    );
   },
 
   removePaneFromWorkspace: (workspaceId, paneId) => {
@@ -193,14 +362,20 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
 
   renamePane: (workspaceId, paneId, label) => {
     const workspace = useWorkspaceListStore.getState().getWorkspace(workspaceId);
-    if (!workspace) return;
+    if (!workspace) return noAgentRenameAttempts();
 
     const trimmedLabel = label.trim();
+    const renamedPane = workspace.panes.find((p) => p.id === paneId);
+    const agentRenameAttempts = renamedPane
+      ? renameAgentSessionsInPane(renamedPane, trimmedLabel)
+      : noAgentRenameAttempts();
+
     const newPanes = workspace.panes.map((p) =>
       p.id === paneId ? { ...p, label: trimmedLabel || undefined } : p
     );
 
     useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes);
+    return agentRenameAttempts;
   },
 
   setPaneColor: (workspaceId, paneId, color) => {
@@ -271,12 +446,14 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
   addTabToPane: (workspaceId, paneId, agentId, type = "terminal") => {
     const start = performance.now();
     const workspace = useWorkspaceListStore.getState().getWorkspace(workspaceId);
-    if (!workspace) return;
+    if (!workspace) return undefined;
+    let createdTab: PaneTab | undefined;
 
     const newPanes = workspace.panes.map((p) => {
       if (p.id !== paneId) return p;
       const agId = agentId ?? p.agentId;
       const tab = makeTab(workspaceId, paneId, agId, type);
+      createdTab = tab;
       usePaneFontStore.getState().copyFontSize(p.sessionId, tab.sessionId);
       return {
         ...p,
@@ -288,6 +465,7 @@ export const useWorkspaceLayoutStore = create<WorkspaceLayoutState>(() => ({
 
     useWorkspaceListStore.getState()._updateWorkspacePanes(workspaceId, newPanes);
     console.log(`[PERF] Tab create (layout store): ${(performance.now() - start).toFixed(2)}ms`);
+    return createdTab;
   },
 
   removeTabFromPane: (workspaceId, paneId, tabId) => {

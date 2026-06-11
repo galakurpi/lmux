@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
-import type { GridTemplateId } from "../../types";
+import type { GridTemplateId, Pane, Workspace } from "../../types";
 import { 
   useWorkspaceListStore, 
   useWorkspaceLayoutStore, 
@@ -29,7 +29,7 @@ type Direction = "up" | "down" | "left" | "right";
 function findPaneInDirection(
   currentSessionId: string,
   direction: Direction,
-  panes: { sessionId: string }[]
+  panes: Pane[]
 ): string | null {
   const currentEl = document.querySelector<HTMLElement>(`[data-session-id="${currentSessionId}"]`);
   if (!currentEl) return null;
@@ -42,9 +42,10 @@ function findPaneInDirection(
   let bestScore = Infinity;
   
   for (const pane of panes) {
-    if (pane.sessionId === currentSessionId) continue;
+    const paneSessionId = activeSessionIdForPane(pane);
+    if (paneSessionId === currentSessionId) continue;
     
-    const el = document.querySelector<HTMLElement>(`[data-session-id="${pane.sessionId}"]`);
+    const el = document.querySelector<HTMLElement>(`[data-session-id="${paneSessionId}"]`);
     if (!el) continue;
     
     const rect = el.getBoundingClientRect();
@@ -91,11 +92,23 @@ function findPaneInDirection(
     
     if (score < bestScore) {
       bestScore = score;
-      bestCandidate = pane.sessionId;
+      bestCandidate = paneSessionId;
     }
   }
   
   return bestCandidate;
+}
+
+function findPaneBySession(workspace: Workspace | undefined, sessionId: string | null): Pane | undefined {
+  if (!workspace || !sessionId) return undefined;
+  return workspace.panes.find((pane) =>
+    pane.sessionId === sessionId ||
+    pane.tabs.some((tab) => tab.sessionId === sessionId || tab.id === sessionId)
+  );
+}
+
+function activeSessionIdForPane(pane: Pane): string {
+  return pane.tabs.find((tab) => tab.id === pane.activeTabId)?.sessionId ?? pane.sessionId;
 }
 
 interface AppShellProps {
@@ -117,6 +130,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
   const addPaneToWorkspace = useWorkspaceLayoutStore((s) => s.addPaneToWorkspace);
   const removePaneFromWorkspace = useWorkspaceLayoutStore((s) => s.removePaneFromWorkspace);
   const addTabToPane = useWorkspaceLayoutStore((s) => s.addTabToPane);
+  const setActivePaneTab = useWorkspaceLayoutStore((s) => s.setActivePaneTab);
   const setIsPaletteOpen = useUiStore((s) => s.setIsPaletteOpen);
   const isPaletteOpen = useUiStore((s) => s.isPaletteOpen);
   const isKeybindingsOpen = useUiStore((s) => s.isKeybindingsOpen);
@@ -193,7 +207,57 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
   const stateRef = useRef({ workspaces, activeId, activePaneId });
   stateRef.current = { workspaces, activeId, activePaneId };
 
+  const focusLatestUnreadOrFinished = useCallback(() => {
+    const { workspaces: ws } = stateRef.current;
+    const metadataStore = usePaneMetadataStore.getState();
+    const metadata = metadataStore.metadata;
+    let target: { workspaceId: string; paneId: string; tabId: string; sessionId: string; lastNotificationAt: number } | null = null;
+    let latestFinished: { workspaceId: string; paneId: string; tabId: string; sessionId: string; lastFinishedAt: number } | null = null;
+
+    for (const workspace of ws) {
+      for (const pane of workspace.panes) {
+        for (const tab of pane.tabs) {
+          const paneMeta = metadata[tab.sessionId];
+          if (!paneMeta) continue;
+
+          if ((paneMeta.notificationCount ?? 0) > 0) {
+            const lastNotificationAt = paneMeta.lastNotificationAt ?? 0;
+            if (!target || lastNotificationAt >= target.lastNotificationAt) {
+              target = { workspaceId: workspace.id, paneId: pane.id, tabId: tab.id, sessionId: tab.sessionId, lastNotificationAt };
+            }
+          }
+
+          if (paneMeta.agentStatus === "done" && paneMeta.lastFinishedAt) {
+            if (!latestFinished || paneMeta.lastFinishedAt >= latestFinished.lastFinishedAt) {
+              latestFinished = { workspaceId: workspace.id, paneId: pane.id, tabId: tab.id, sessionId: tab.sessionId, lastFinishedAt: paneMeta.lastFinishedAt };
+            }
+          }
+        }
+      }
+    }
+
+    const focusTarget = target ?? latestFinished;
+    if (!focusTarget) return;
+    setActiveWorkspace(focusTarget.workspaceId);
+    setActivePaneTab(focusTarget.workspaceId, focusTarget.paneId, focusTarget.tabId);
+    setActivePaneId(focusTarget.sessionId);
+    metadataStore.clearNotification(focusTarget.sessionId);
+
+    setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-session-id="${focusTarget.sessionId}"]`);
+      const textarea = el?.querySelector<HTMLTextAreaElement>("textarea");
+      if (textarea) textarea.focus(); else el?.focus();
+    }, 0);
+  }, [setActivePaneId, setActivePaneTab, setActiveWorkspace]);
+
   useEffect(() => {
+    const onLmuxAction = (e: Event) => {
+      const action = (e as CustomEvent<{ action?: string }>).detail?.action;
+      if (action === "pane.focus.latestUnread") {
+        focusLatestUnreadOrFinished();
+      }
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
       // Skip if modals are open
       if (isPaletteOpen || isKeybindingsOpen) return;
@@ -296,7 +360,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
 
         case "pane.split.right": {
           const activeWs = ws.find((w) => w.id === aid);
-          const activePane = activeWs?.panes.find((p) => p.sessionId === apid);
+          const activePane = findPaneBySession(activeWs, apid);
           if (activeWs && activePane) {
             addPaneToWorkspace(activeWs.id, activePane.id, "right");
           }
@@ -305,7 +369,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
 
         case "pane.split.down": {
           const activeWs = ws.find((w) => w.id === aid);
-          const activePane = activeWs?.panes.find((p) => p.sessionId === apid);
+          const activePane = findPaneBySession(activeWs, apid);
           if (activeWs && activePane) {
             addPaneToWorkspace(activeWs.id, activePane.id, "down");
           }
@@ -314,7 +378,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
 
         case "pane.close": {
           const activeWs = ws.find((w) => w.id === aid);
-          const activePane = activeWs?.panes.find((p) => p.sessionId === apid);
+          const activePane = findPaneBySession(activeWs, apid);
           if (activeWs && activePane) {
             removePaneFromWorkspace(activeWs.id, activePane.id);
             // Focus a remaining pane after close
@@ -325,7 +389,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
                 findPaneInDirection(apid!, "down", remaining) ||
                 findPaneInDirection(apid!, "left", remaining) ||
                 findPaneInDirection(apid!, "up", remaining) ||
-                remaining[0].sessionId;
+                activeSessionIdForPane(remaining[0]);
               setActivePaneId(neighbor);
               setTimeout(() => {
                 const el = document.querySelector<HTMLElement>(`[data-session-id="${neighbor}"]`);
@@ -341,7 +405,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
 
         case "pane.newBrowserTab": {
           const activeWs = ws.find((w) => w.id === aid);
-          const activePane = activeWs?.panes.find((p) => p.sessionId === apid);
+          const activePane = findPaneBySession(activeWs, apid);
           if (activeWs && activePane) {
             addTabToPane(activeWs.id, activePane.id, undefined, "browser");
           }
@@ -349,42 +413,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
         }
 
         case "pane.focus.latestUnread": {
-          const metadata = usePaneMetadataStore.getState().metadata;
-          let target: { workspaceId: string; sessionId: string; lastNotificationAt: number } | null = null;
-          let latestFinished: { workspaceId: string; sessionId: string; lastFinishedAt: number } | null = null;
-
-          for (const workspace of ws) {
-            for (const pane of workspace.panes) {
-              const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
-              const sessionId = activeTab?.sessionId ?? pane.sessionId;
-              const paneMeta = metadata[sessionId];
-              if (!paneMeta) continue;
-
-              if ((paneMeta.notificationCount ?? 0) > 0) {
-                const lastNotificationAt = paneMeta.lastNotificationAt ?? 0;
-                if (!target || lastNotificationAt >= target.lastNotificationAt) {
-                  target = { workspaceId: workspace.id, sessionId, lastNotificationAt };
-                }
-              }
-
-              if (paneMeta.agentStatus === "done" && paneMeta.lastFinishedAt) {
-                if (!latestFinished || paneMeta.lastFinishedAt >= latestFinished.lastFinishedAt) {
-                  latestFinished = { workspaceId: workspace.id, sessionId, lastFinishedAt: paneMeta.lastFinishedAt };
-                }
-              }
-            }
-          }
-
-          const focusTarget = target ?? latestFinished;
-          if (!focusTarget) return;
-          setActiveWorkspace(focusTarget.workspaceId);
-          setActivePaneId(focusTarget.sessionId);
-
-          setTimeout(() => {
-            const el = document.querySelector<HTMLElement>(`[data-session-id="${focusTarget.sessionId}"]`);
-            const textarea = el?.querySelector<HTMLTextAreaElement>("textarea");
-            if (textarea) textarea.focus(); else el?.focus();
-          }, 0);
+          focusLatestUnreadOrFinished();
           break;
         }
 
@@ -425,8 +454,12 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
       }
     };
 
+    window.addEventListener("lmux-keybinding-action", onLmuxAction);
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("lmux-keybinding-action", onLmuxAction);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [
     getActionsForEvent,
     isPaletteOpen,
@@ -442,6 +475,7 @@ export default function AppShell({ uiVariant = "default" }: AppShellProps) {
     removePaneFromWorkspace,
     addTabToPane,
     setActivePaneId,
+    focusLatestUnreadOrFinished,
   ]);
 
   const mainContent = (

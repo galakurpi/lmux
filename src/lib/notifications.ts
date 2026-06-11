@@ -1,5 +1,5 @@
 import { sendDesktopNotification } from "./ipc";
-import { usePaneMetadataStore } from "../stores/workspaceStore";
+import { usePaneMetadataStore, useWorkspaceListStore } from "../stores/workspaceStore";
 
 export interface TerminalNotification {
   title: string;
@@ -104,7 +104,15 @@ export function addPaneNotification(
   store.triggerFlash(sessionId);
 
   if (options.desktop ?? true) {
-    void sendDesktopNotification(title, body, options.sound ?? true).catch((err) => {
+    const workspace = useWorkspaceListStore
+      .getState()
+      .workspaces.find((w) =>
+        w.panes.some((p) =>
+          p.sessionId === sessionId || p.tabs.some((t) => t.sessionId === sessionId)
+        )
+      );
+    const target = workspace ? { workspaceId: workspace.id, surfaceId: sessionId } : undefined;
+    void sendDesktopNotification(title, body, options.sound ?? true, target).catch((err) => {
       console.error("Failed to send desktop notification:", err);
     });
   }

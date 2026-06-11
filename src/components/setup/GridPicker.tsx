@@ -5,13 +5,16 @@ import GridPreview from "./GridPreview";
 interface GridPickerProps {
   selected: GridTemplateId;
   onSelect: (id: GridTemplateId) => void;
+  minPaneCount?: number;
 }
 
 const DISPLAY_ORDER: GridTemplateId[] = [
-  "1x1", "2x1", "1x2", "2x2", "3x2", "2x3", "3x3", "4x4",
+  "1x1", "2x1", "1x2", "2x2", "3x2", "2x3", "3x3", "ceo", "4x4",
 ];
 
-export default function GridPicker({ selected, onSelect }: GridPickerProps) {
+export default function GridPicker({ selected, onSelect, minPaneCount = 1 }: GridPickerProps) {
+  const options = DISPLAY_ORDER.filter((id) => GRID_TEMPLATES[id].paneCount >= minPaneCount);
+
   return (
     <div>
       <div
@@ -25,7 +28,7 @@ export default function GridPicker({ selected, onSelect }: GridPickerProps) {
         Layout
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {DISPLAY_ORDER.map((id) => (
+        {options.map((id) => (
           <GridPreview
             key={id}
             template={GRID_TEMPLATES[id]}

@@ -30,6 +30,13 @@ interface WorkspaceListState {
   renameWorkspace: (id: string, name: string) => void;
   setWorkspaceColor: (id: string, color: string) => void;
   setWorkspaceStatus: (id: string, status: Workspace["status"]) => void;
+  setWorkspaceLayout: (
+    id: string,
+    gridTemplateId: GridTemplateId,
+    panes: Workspace["panes"],
+    splitRows: string[][],
+    splitLayout: SplitLayoutNode,
+  ) => void;
   
   // Internal update for layout store to modify panes
   _updateWorkspacePanes: (
@@ -118,6 +125,16 @@ export const useWorkspaceListStore = create<WorkspaceListState>((set, get) => ({
     set((state) => ({
       workspaces: state.workspaces.map((w) =>
         w.id === id ? { ...w, status } : w
+      ),
+    }));
+  },
+
+  setWorkspaceLayout: (id, gridTemplateId, panes, splitRows, splitLayout) => {
+    set((state) => ({
+      workspaces: state.workspaces.map((w) =>
+        w.id === id
+          ? { ...w, gridTemplateId, panes, splitRows, splitLayout }
+          : w
       ),
     }));
   },

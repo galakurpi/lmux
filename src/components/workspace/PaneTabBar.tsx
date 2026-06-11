@@ -8,6 +8,7 @@ import { LABEL_COLOR_OPTIONS } from "../../lib/colors";
 interface PaneTabBarProps {
   pane: Pane;
   workspaceId: string;
+  isPaneActive?: boolean;
   hasNotification?: boolean;
   onClose?: () => void;
   onSplitRight?: () => void;
@@ -25,22 +26,6 @@ const FolderIcon = () => (
   </svg>
 );
 
-const SplitRightIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-    <line x1="12" y1="3" x2="12" y2="21"></line>
-    <line x1="12" y1="12" x2="21" y2="12"></line>
-  </svg>
-);
-
-const SplitDownIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-    <line x1="3" y1="12" x2="21" y2="12"></line>
-    <line x1="12" y1="12" x2="12" y2="21"></line>
-  </svg>
-);
-
 const CloseIcon = ({ size = 10 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -52,6 +37,24 @@ const PlusIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="5" x2="12" y2="19"></line>
     <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+);
+
+const SplitRightIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+    <line x1="12" y1="4" x2="12" y2="20"></line>
+    <path d="M16 12h3"></path>
+    <path d="M18 10l2 2-2 2"></path>
+  </svg>
+);
+
+const SplitDownIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+    <line x1="3" y1="12" x2="21" y2="12"></line>
+    <path d="M12 15v3"></path>
+    <path d="M10 17l2 2 2-2"></path>
   </svg>
 );
 
@@ -99,6 +102,7 @@ function AgentStatusDot({ status }: { status: AgentStatus }) {
 
 export default memo(function PaneTabBar({
   pane,
+  isPaneActive = false,
   hasNotification,
   onClose,
   onSplitRight,
@@ -170,10 +174,13 @@ export default memo(function PaneTabBar({
       style={{
         display: "flex",
         flexDirection: "column",
-        background: "var(--cmux-surface)",
+        background: isPaneActive
+          ? "color-mix(in srgb, var(--cmux-surface) 70%, var(--cmux-accent) 30%)"
+          : "var(--cmux-surface)",
         borderBottom: hasNotification
           ? "1px solid rgba(255, 59, 48, 0.5)"
           : "1px solid var(--cmux-border)",
+        boxShadow: isPaneActive ? "inset 0 2px 0 var(--cmux-accent)" : "none",
         flexShrink: 0,
         userSelect: "none",
         position: "relative",
@@ -394,15 +401,15 @@ export default memo(function PaneTabBar({
         <GlobeIcon />
       </button>
 
-      {/* Right: split + close pane buttons */}
+      {/* Right: close pane button */}
       <div style={{ display: "flex", alignItems: "center", gap: 2, paddingRight: 6, flexShrink: 0 }}>
         {onSplitRight && (
-          <button className="pane-action-btn" onClick={onSplitRight} title="Split right">
+          <button className="pane-action-btn" onClick={onSplitRight} title="Split pane right">
             <SplitRightIcon />
           </button>
         )}
         {onSplitDown && (
-          <button className="pane-action-btn" onClick={onSplitDown} title="Split down">
+          <button className="pane-action-btn" onClick={onSplitDown} title="Split pane down">
             <SplitDownIcon />
           </button>
         )}

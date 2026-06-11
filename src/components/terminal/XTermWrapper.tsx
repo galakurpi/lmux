@@ -9,10 +9,12 @@ import {
   createSession,
   writeToSession,
   resizeSession,
+  copyTextToClipboard,
   onPtyExit,
   getTerminalConfig,
 } from "../../lib/ipc";
 import { usePaneMetadataStore } from "../../stores/workspaceStore";
+import { useTerminalScreenStore } from "../../stores/terminalScreenStore";
 import { useKeybindingStore } from "../../stores/keybindingStore";
 import { usePaneFontStore } from "../../stores/paneFontStore";
 import { useThemeStore } from "../../stores/themeStore";
@@ -21,6 +23,18 @@ import {
   createOscNotificationState,
   parseOscNotification,
 } from "../../lib/notifications";
+import {
+  recordTerminalInput,
+  recordTerminalOutputChunk,
+  recordTerminalOutputFlush,
+  recordTerminalQueuedOutputBytes,
+  recordTerminalScreenCapture,
+  recordTerminalWriteDuration,
+} from "../../lib/perfTelemetry";
+import {
+  registerTerminalInputWriter,
+  registerTerminalOutputFlusher,
+} from "../../lib/terminalInputRegistry";
 import type { ITheme } from "@xterm/xterm";
 
 interface XTermWrapperProps {
@@ -33,6 +47,8 @@ interface XTermWrapperProps {
   fontSize?: number;
   fontFamily?: string;
   suppressNotifications?: boolean;
+  isVisible?: boolean;
+  isFocused?: boolean;
   onZoomToggle?: () => void;
   onUrlClick?: (url: string) => void;
   cwd?: string;
@@ -55,6 +71,13 @@ function buildThemeFromConfig(cfg: { background: string; foreground: string; ans
     (theme as Record<string, string>)[ANSI_KEYS[i] as string] = cfg.ansi[i];
   }
   return theme;
+}
+
+function withTerminalBackground(theme: ITheme, background: string): ITheme {
+  return {
+    ...theme,
+    background,
+  };
 }
 
 const DEFAULT_THEME: ITheme = {
@@ -95,9 +118,111 @@ function isPaneZoomKey(e: KeyboardEvent): 1 | -1 | 0 {
   return 0;
 }
 
+function readRecentTerminalText(term: Terminal, maxLines = 200): string {
+  const buf = term.buffer.active;
+  const end = Math.min(buf.length - 1, buf.baseY + buf.cursorY);
+  const start = Math.max(0, end - maxLines + 1);
+  const lines: string[] = [];
+
+  for (let i = start; i <= end; i++) {
+    const line = buf.getLine(i);
+    if (line) lines.push(line.translateToString(true));
+  }
+
+  return lines.join("\n").trimEnd();
+}
+
+function takeQueuedTerminalOutput(queue: Uint8Array[], maxBytes: number): Uint8Array | null {
+  if (queue.length === 0) return null;
+
+  let byteLength = 0;
+  let chunkCount = 0;
+  while (chunkCount < queue.length) {
+    const nextLength = queue[chunkCount].byteLength;
+    if (chunkCount > 0 && byteLength + nextLength > maxBytes) break;
+    byteLength += nextLength;
+    chunkCount++;
+  }
+
+  const chunks = queue.splice(0, chunkCount);
+  if (chunks.length === 1) return chunks[0];
+
+  const merged = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return merged;
+}
+
+async function copySelectionToClipboard(text: string): Promise<void> {
+  try {
+    await copyTextToClipboard(text);
+    return;
+  } catch {
+    // Fall through to the WebView clipboard API when native helpers are unavailable.
+  }
+
+  await navigator.clipboard?.writeText(text).catch(() => {
+    // Clipboard access can be unavailable in some webview contexts; selection still works.
+  });
+}
+
 // Cache terminal config globally — fetched once, reused across all panes
 let cachedConfig: { theme: ITheme; fontSize: number; fontFamily: string } | null = null;
 let configPromise: Promise<void> | null = null;
+const MAX_TERMINAL_WRITE_BATCH_BYTES = 256 * 1024;
+const HIDDEN_TERMINAL_WRITE_BATCH_BYTES = 64 * 1024;
+const HIDDEN_TERMINAL_OUTPUT_QUEUE_HIGH_WATER_BYTES = 8 * 1024 * 1024;
+const HIDDEN_TERMINAL_OUTPUT_QUEUE_TARGET_BYTES = 4 * 1024 * 1024;
+const HIDDEN_TERMINAL_OUTPUT_DRAIN_DELAY_MS = 100;
+const HIGH_OUTPUT_SCREEN_CAPTURE_THRESHOLD_BYTES = 64 * 1024;
+const SCREEN_CAPTURE_LINES = 80;
+const SCREEN_CAPTURE_MIN_INTERVAL_MS = 1000;
+const MAX_METADATA_LOG_LINE_CHARS = 240;
+const TERMINAL_INPUT_FLUSH_DELAY_MS = 4;
+const MAX_TERMINAL_INPUT_BATCH_CHARS = 4096;
+const MAX_TERMINAL_OUTPUT_FLUSHES_PER_FRAME = 4;
+const pendingTerminalOutputFlushes = new Set<() => void>();
+let terminalOutputFlushFrame: number | null = null;
+
+function scheduleTerminalOutputFlush(flush: () => void) {
+  pendingTerminalOutputFlushes.add(flush);
+  if (terminalOutputFlushFrame !== null) return;
+
+  terminalOutputFlushFrame = window.requestAnimationFrame(runTerminalOutputFlushes);
+}
+
+function cancelTerminalOutputFlush(flush: () => void) {
+  pendingTerminalOutputFlushes.delete(flush);
+}
+
+function runTerminalOutputFlushes() {
+  terminalOutputFlushFrame = null;
+  let flushed = 0;
+
+  for (const flush of pendingTerminalOutputFlushes) {
+    pendingTerminalOutputFlushes.delete(flush);
+    flush();
+    flushed++;
+    if (flushed >= MAX_TERMINAL_OUTPUT_FLUSHES_PER_FRAME) break;
+  }
+
+  if (pendingTerminalOutputFlushes.size > 0) {
+    terminalOutputFlushFrame = window.requestAnimationFrame(runTerminalOutputFlushes);
+  }
+}
+
+function truncateMetadataLogLine(line: string): string {
+  return line.length <= MAX_METADATA_LOG_LINE_CHARS
+    ? line
+    : `${line.slice(0, MAX_METADATA_LOG_LINE_CHARS - 3)}...`;
+}
+
+function shouldFlushTerminalInputImmediately(data: string): boolean {
+  return /[\x00-\x1f\x7f]/.test(data);
+}
 
 function ensureConfigLoaded(): Promise<void> {
   if (cachedConfig) return Promise.resolve();
@@ -133,6 +258,8 @@ export default memo(function XTermWrapper({
   fontSize,
   fontFamily,
   suppressNotifications = false,
+  isVisible = true,
+  isFocused = true,
   onZoomToggle,
   onUrlClick,
   cwd,
@@ -142,6 +269,8 @@ export default memo(function XTermWrapper({
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const paneFontSizeRef = useRef<number | null>(null);
+  const isVisibleRef = useRef(isVisible);
+  const requestVisibleOutputFlushRef = useRef<() => void>(() => {});
   
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -149,6 +278,19 @@ export default memo(function XTermWrapper({
 
   const storeTheme = useThemeStore((s) => s.theme);
   const storeFontSize = useThemeStore((s) => s.fontSize);
+
+  useEffect(() => {
+    isVisibleRef.current = isVisible;
+    if (!isVisible) return;
+    requestVisibleOutputFlushRef.current();
+    setTimeout(() => fitAddonRef.current?.fit(), 0);
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (termRef.current) {
+      termRef.current.options.cursorBlink = isVisible && isFocused;
+    }
+  }, [isFocused, isVisible]);
 
   const zoomPaneFont = useCallback((delta: 1 | -1) => {
     const term = termRef.current;
@@ -195,6 +337,173 @@ export default memo(function XTermWrapper({
     let resizeObserver: ResizeObserver | null = null;
     let resizeTimeout: ReturnType<typeof setTimeout>;
     let logThrottle: ReturnType<typeof setTimeout> | null = null;
+    let logThrottlePending = false;
+    let selectionCopyTimeout: ReturnType<typeof setTimeout> | null = null;
+    let selectionChangeDisposable: { dispose: () => void } | null = null;
+    let unregisterInputWriter: (() => void) | null = null;
+    let unregisterOutputFlusher: (() => void) | null = null;
+    let lastCopiedSelection = "";
+    let outputFlushQueued = false;
+    let outputWriteInProgress = false;
+    let outputWriteIdleResolvers: Array<() => void> = [];
+    let queuedOutputBytes = 0;
+    let outputBytesSinceScreenCapture = 0;
+    let lastScreenCaptureAt = 0;
+    const outputQueue: Uint8Array[] = [];
+    let hiddenOutputDrainTimeout: ReturnType<typeof setTimeout> | null = null;
+    let inputQueue = "";
+    let inputFlushTimeout: ReturnType<typeof setTimeout> | null = null;
+    let inputWriteInProgress = false;
+
+    const runScheduledOutputFlush = () => {
+      outputFlushQueued = false;
+      flushOutput();
+    };
+
+    const scheduleOutputFlush = () => {
+      if (outputFlushQueued) return;
+      outputFlushQueued = true;
+      scheduleTerminalOutputFlush(runScheduledOutputFlush);
+    };
+
+    requestVisibleOutputFlushRef.current = scheduleOutputFlush;
+
+    const notifyOutputWriteIdle = () => {
+      const resolvers = outputWriteIdleResolvers;
+      outputWriteIdleResolvers = [];
+      resolvers.forEach((resolve) => resolve());
+    };
+
+    const waitForOutputWriteIdle = () => {
+      if (!outputWriteInProgress) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        outputWriteIdleResolvers.push(resolve);
+      });
+    };
+
+    const flushOutput = (visibility: "visible" | "hidden" = isVisibleRef.current ? "visible" : "hidden") => {
+      if (disposed || !term) {
+        outputQueue.length = 0;
+        queuedOutputBytes = 0;
+        return;
+      }
+      if (outputWriteInProgress) return;
+
+      const batchBytes = visibility === "hidden"
+        ? HIDDEN_TERMINAL_WRITE_BATCH_BYTES
+        : MAX_TERMINAL_WRITE_BATCH_BYTES;
+      const nextChunk = takeQueuedTerminalOutput(outputQueue, batchBytes);
+      if (!nextChunk) return;
+      queuedOutputBytes -= nextChunk.byteLength;
+      outputWriteInProgress = true;
+      const writeStart = performance.now();
+      term.write(nextChunk, () => {
+        recordTerminalOutputFlush(performance.now() - writeStart, nextChunk.byteLength, visibility);
+        outputWriteInProgress = false;
+        notifyOutputWriteIdle();
+        if (outputQueue.length > 0 && isVisibleRef.current) scheduleOutputFlush();
+        if (queuedOutputBytes > HIDDEN_TERMINAL_OUTPUT_QUEUE_TARGET_BYTES) scheduleHiddenOutputDrain();
+      });
+    };
+
+    function scheduleHiddenOutputDrain() {
+      if (
+        hiddenOutputDrainTimeout !== null ||
+        isVisibleRef.current ||
+        queuedOutputBytes <= HIDDEN_TERMINAL_OUTPUT_QUEUE_TARGET_BYTES
+      ) return;
+
+      hiddenOutputDrainTimeout = window.setTimeout(() => {
+        hiddenOutputDrainTimeout = null;
+        if (disposed || !term || isVisibleRef.current) return;
+        flushOutput("hidden");
+        if (queuedOutputBytes > HIDDEN_TERMINAL_OUTPUT_QUEUE_TARGET_BYTES) {
+          scheduleHiddenOutputDrain();
+        }
+      }, HIDDEN_TERMINAL_OUTPUT_DRAIN_DELAY_MS);
+    }
+
+    const forceFlushOutput = async () => {
+      while (!disposed && term) {
+        await waitForOutputWriteIdle();
+        if (outputQueue.length === 0) break;
+        flushOutput();
+      }
+      await waitForOutputWriteIdle();
+      if (!disposed && term) {
+        const screenCaptureStart = performance.now();
+        useTerminalScreenStore.getState().setScreen(sessionId, {
+          text: readRecentTerminalText(term, SCREEN_CAPTURE_LINES),
+          rows: term.rows,
+          cols: term.cols,
+        });
+        lastScreenCaptureAt = performance.now();
+        outputBytesSinceScreenCapture = 0;
+        recordTerminalScreenCapture(performance.now() - screenCaptureStart);
+      }
+    };
+
+    const enqueueOutput = (rawData: ArrayBuffer) => {
+      if (disposed || !term) return;
+      const chunk = new Uint8Array(rawData);
+      recordTerminalOutputChunk(chunk.byteLength);
+      outputQueue.push(chunk);
+      queuedOutputBytes += chunk.byteLength;
+      recordTerminalQueuedOutputBytes(queuedOutputBytes);
+      outputBytesSinceScreenCapture += chunk.byteLength;
+      if (!isVisibleRef.current) {
+        if (queuedOutputBytes >= HIDDEN_TERMINAL_OUTPUT_QUEUE_HIGH_WATER_BYTES) {
+          scheduleHiddenOutputDrain();
+        }
+        return;
+      }
+      if (queuedOutputBytes >= MAX_TERMINAL_WRITE_BATCH_BYTES && !outputWriteInProgress) {
+        flushOutput();
+      } else {
+        scheduleOutputFlush();
+      }
+    };
+
+    const scheduleInputFlush = () => {
+      if (inputFlushTimeout !== null) return;
+      inputFlushTimeout = window.setTimeout(() => {
+        inputFlushTimeout = null;
+        flushInput();
+      }, TERMINAL_INPUT_FLUSH_DELAY_MS);
+    };
+
+    const flushInput = () => {
+      if (disposed || !inputQueue || inputWriteInProgress) return;
+
+      const next = inputQueue;
+      inputQueue = "";
+      inputWriteInProgress = true;
+      const start = performance.now();
+      writeToSession(sessionId, next)
+        .then(() => recordTerminalWriteDuration(performance.now() - start))
+        .catch(console.error)
+        .finally(() => {
+          inputWriteInProgress = false;
+          if (inputQueue) scheduleInputFlush();
+        });
+    };
+
+    const enqueueInput = (data: string) => {
+      recordTerminalInput(data);
+      inputQueue += data;
+      if (
+        shouldFlushTerminalInputImmediately(data) ||
+        inputQueue.length >= MAX_TERMINAL_INPUT_BATCH_CHARS
+      ) {
+        if (inputFlushTimeout !== null) {
+          clearTimeout(inputFlushTimeout);
+          inputFlushTimeout = null;
+        }
+        flushInput();
+      } else {
+        scheduleInputFlush();
+      }
+    };
 
     async function init() {
       if (disposed) return;
@@ -202,19 +511,19 @@ export default memo(function XTermWrapper({
 
       // Use cached config if available (instant), otherwise use defaults
       const cfg = cachedConfig;
-      const initTheme = theme ?? cfg?.theme ?? DEFAULT_THEME;
+      const initTheme = theme ?? withTerminalBackground(cfg?.theme ?? storeTheme.terminal ?? DEFAULT_THEME, storeTheme.terminal.background ?? DEFAULT_THEME.background!);
       const initFontSize = fontSize ?? cfg?.fontSize ?? storeFontSize;
       const initFontFamily = fontFamily ?? cfg?.fontFamily ?? "'JetBrainsMono Nerd Font Mono', 'JetBrains Mono', 'Geist Mono', 'SF Mono', monospace";
       paneFontSizeRef.current = initFontSize;
 
       term = new Terminal({
-        cursorBlink: true,
+        cursorBlink: isVisible && isFocused,
         cursorStyle: "block",
         fontSize: initFontSize,
         fontFamily: initFontFamily,
         fontWeight: 400,
         fontWeightBold: 600,
-        letterSpacing: -1,
+        letterSpacing: 0,
         lineHeight: 1.0,
         rescaleOverlappingGlyphs: true,
         customGlyphs: true,
@@ -256,6 +565,23 @@ export default memo(function XTermWrapper({
       term.parser.registerOscHandler(99, (data) => handleOscNotification(99, data));
       term.parser.registerOscHandler(777, (data) => handleOscNotification(777, data));
 
+      // OSC 52: programs (e.g. Claude Code copy) set the system clipboard via
+      // base64 payload "<selection>;<base64>". Reads ("?") are not supported.
+      term.parser.registerOscHandler(52, (data) => {
+        const semi = data.indexOf(";");
+        if (semi === -1) return true;
+        const payload = data.slice(semi + 1);
+        if (payload === "?") return true;
+        try {
+          const bytes = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
+          const text = new TextDecoder().decode(bytes);
+          if (text) void copySelectionToClipboard(text);
+        } catch {
+          // Malformed base64 payload — ignore.
+        }
+        return true;
+      });
+
       // Forward modifier+key combos that xterm intercepts before the PTY sees them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         if (e.type !== "keydown") return true;
@@ -285,15 +611,24 @@ export default memo(function XTermWrapper({
             onZoomToggle?.();
             return false;
           }
+
+          if (actions.includes("pane.focus.latestUnread")) {
+            window.dispatchEvent(new CustomEvent("lmux-keybinding-action", {
+              detail: { action: "pane.focus.latestUnread" },
+            }));
+            return false;
+          }
           
           // For all other shortcuts (pane split, workspace nav, etc.),
           // return false to let the event bubble to AppShell
           return false;
         }
         
-        // Codex-style TUIs treat Linefeed as "insert newline" while Enter submits.
-        if ((e.key === "Enter" || e.key === "Linefeed") && e.shiftKey && !e.ctrlKey && !e.altKey) {
-          writeToSession(sessionId, "\n").catch(console.error);
+        // Codex/Claude-style TUIs treat Linefeed as "insert newline" while Enter submits.
+        const isShiftEnterNewline =
+          (e.key === "Enter" && e.shiftKey) || e.key === "Linefeed";
+        if (isShiftEnterNewline && !e.ctrlKey && !e.altKey) {
+          enqueueInput("\n");
           return false; // prevent xterm's default handling
         }
         
@@ -303,11 +638,28 @@ export default memo(function XTermWrapper({
 
       // Send user keystrokes to PTY — plain text, no encoding
       term.onData((data) => {
-        writeToSession(sessionId, data).catch(console.error);
+        enqueueInput(data);
       });
 
       term.onBinary((data) => {
-        writeToSession(sessionId, data).catch(console.error);
+        enqueueInput(data);
+      });
+      unregisterInputWriter = registerTerminalInputWriter(sessionId, enqueueInput);
+      unregisterOutputFlusher = registerTerminalOutputFlusher(sessionId, forceFlushOutput);
+
+      selectionChangeDisposable = term.onSelectionChange(() => {
+        if (selectionCopyTimeout) clearTimeout(selectionCopyTimeout);
+        selectionCopyTimeout = setTimeout(() => {
+          if (disposed || !term) return;
+          const selection = term.getSelection();
+          if (!selection.trim()) {
+            lastCopiedSelection = "";
+            return;
+          }
+          if (selection === lastCopiedSelection) return;
+          lastCopiedSelection = selection;
+          void copySelectionToClipboard(selection);
+        }, 80);
       });
 
       // Track terminal title changes (set via escape sequences by shells/apps)
@@ -317,10 +669,13 @@ export default memo(function XTermWrapper({
       });
 
       let _lastParsedOut = "";
-      term.onWriteParsed(() => {
+      const scheduleParsedUpdate = () => {
         if (!term) return;
         // Throttle to 500ms — prevents hammering Zustand on every keystroke
-        if (logThrottle) return;
+        if (logThrottle) {
+          logThrottlePending = true;
+          return;
+        }
         logThrottle = setTimeout(() => {
           logThrottle = null;
           if (!term || disposed) return;
@@ -355,21 +710,53 @@ export default memo(function XTermWrapper({
               /^\s*[\u2500-\u257F]+\s*$/.test(stripped) || // box-drawing chars only
               stripped.length < 3;
 
-            // When agent returns to shell prompt, clear the log line.
-            // For noise lines, omit the key entirely so the previous meaningful value is preserved.
+            // When agent returns to shell prompt, clear the log line. Do not publish
+            // normal prompt input here: holding a key can otherwise churn a growing
+            // metadata string every throttle tick.
             const isShellPrompt = /^>\s*$/.test(stripped) || /\$\s*$/.test(stripped);
-            const logLineUpdate = isShellPrompt
+            const isPromptInput =
+              /^❯\s+\S/.test(stripped) ||
+              /^[^@\s]+@[^:\s]+:.*[$#]\s+\S/.test(stripped);
+            const agentStatus = usePaneMetadataStore.getState().metadata[sessionId]?.agentStatus;
+            const shouldPublishLogLine =
+              isShellPrompt ||
+              (!isPromptInput && !isNoiseLine && (agentStatus === "working" || agentStatus === "waiting"));
+            const logLineUpdate = !shouldPublishLogLine
+              ? {}
+              : isShellPrompt
               ? { lastLogLine: undefined }          // clear on shell prompt
-              : isNoiseLine
-                ? {}                               // preserve previous value for noise
-                : { lastLogLine: lastLine };       // update with meaningful line
+              : { lastLogLine: truncateMetadataLogLine(lastLine) }; // update with meaningful line
 
-            usePaneMetadataStore.getState().setMetadata(sessionId, {
-              ...logLineUpdate,
+            if (Object.keys(logLineUpdate).length > 0) {
+              usePaneMetadataStore.getState().setMetadata(sessionId, {
+                ...logLineUpdate,
+              });
+            }
+          }
+
+          const bytesSinceLastCapture = outputBytesSinceScreenCapture;
+          outputBytesSinceScreenCapture = 0;
+          const now = performance.now();
+          if (
+            now - lastScreenCaptureAt >= SCREEN_CAPTURE_MIN_INTERVAL_MS &&
+            bytesSinceLastCapture < HIGH_OUTPUT_SCREEN_CAPTURE_THRESHOLD_BYTES
+          ) {
+            const screenCaptureStart = performance.now();
+            useTerminalScreenStore.getState().setScreen(sessionId, {
+              text: readRecentTerminalText(term, SCREEN_CAPTURE_LINES),
+              rows: term.rows,
+              cols: term.cols,
             });
+            lastScreenCaptureAt = now;
+            recordTerminalScreenCapture(performance.now() - screenCaptureStart);
+          }
+          if (logThrottlePending) {
+            logThrottlePending = false;
+            scheduleParsedUpdate();
           }
         }, 500);
-      });
+      };
+      term.onWriteParsed(scheduleParsedUpdate);
 
       // Register exit listener before spawning PTY to avoid race
       let sessionStarted = false;
@@ -389,8 +776,7 @@ export default memo(function XTermWrapper({
 
       try {
         await createSession(sessionId, command, args, cols, rows, (rawData: ArrayBuffer) => {
-          if (disposed || !term) return;
-          term.write(new Uint8Array(rawData));
+          enqueueOutput(rawData);
         }, cwd, workspaceId);
         sessionStarted = true;
         console.log(`[PERF] Terminal session created - ${(performance.now() - initStart).toFixed(2)}ms`);
@@ -414,7 +800,7 @@ export default memo(function XTermWrapper({
       if (!cfg && !theme && !fontSize && !fontFamily) {
         ensureConfigLoaded().then(() => {
           if (disposed || !term || !cachedConfig) return;
-          term.options.theme = cachedConfig.theme;
+          term.options.theme = withTerminalBackground(cachedConfig.theme, storeTheme.terminal.background ?? DEFAULT_THEME.background!);
           term.options.fontSize = cachedConfig.fontSize;
           term.options.fontFamily = cachedConfig.fontFamily;
           fitAddon?.fit();
@@ -428,9 +814,27 @@ export default memo(function XTermWrapper({
       disposed = true;
       const cleanupStart = performance.now();
       clearTimeout(resizeTimeout);
+      cancelTerminalOutputFlush(runScheduledOutputFlush);
+      outputFlushQueued = false;
+      if (hiddenOutputDrainTimeout !== null) {
+        clearTimeout(hiddenOutputDrainTimeout);
+        hiddenOutputDrainTimeout = null;
+      }
+      if (inputFlushTimeout !== null) {
+        clearTimeout(inputFlushTimeout);
+        inputFlushTimeout = null;
+      }
+      inputQueue = "";
+      outputQueue.length = 0;
+      unregisterInputWriter?.();
+      unregisterOutputFlusher?.();
+      requestVisibleOutputFlushRef.current = () => {};
       if (logThrottle) { clearTimeout(logThrottle); logThrottle = null; }
+      if (selectionCopyTimeout) { clearTimeout(selectionCopyTimeout); selectionCopyTimeout = null; }
+      useTerminalScreenStore.getState().clearScreen(sessionId);
       resizeObserver?.disconnect();
       unlistenExit?.();
+      selectionChangeDisposable?.dispose();
       term?.dispose();
       searchAddonRef.current = null;
       console.log(`[PERF] XTermWrapper unmounted for session ${sessionId} - mount duration: ${(cleanupStart - mountStart).toFixed(2)}ms, cleanup: ${(performance.now() - cleanupStart).toFixed(2)}ms`);
@@ -536,6 +940,7 @@ export default memo(function XTermWrapper({
           overflow: "hidden",
           position: "relative",
           contain: "strict",
+          background: "var(--cmux-bg, #101010)",
         }}
       />
     </div>

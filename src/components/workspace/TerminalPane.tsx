@@ -17,13 +17,15 @@ import { getAgent, getDefaultAgent } from "../../lib/agents";
 interface TerminalPaneProps {
   pane: Pane;
   workspaceId: string;
+  isWorkspaceVisible?: boolean;
   onClose?: () => void;
   onSplitRight?: () => void;
   onSplitDown?: () => void;
 }
 
-export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitRight, onSplitDown }: TerminalPaneProps) {
-  const paneMeta = usePaneMetadataStore((s) => s.metadata[pane.sessionId]);
+export default memo(function TerminalPane({ pane, workspaceId, isWorkspaceVisible = true, onClose, onSplitRight, onSplitDown }: TerminalPaneProps) {
+  const activeTabSessionId = pane.tabs.find((t) => t.id === pane.activeTabId)?.sessionId ?? pane.sessionId;
+  const paneMeta = usePaneMetadataStore((s) => s.metadata[activeTabSessionId]);
   const notificationCount = paneMeta?.notificationCount ?? 0;
   const paneCwd = paneMeta?.cwd ?? pane.cwd;
   const flashingPaneIds = usePaneMetadataStore((s) => s.flashingPaneIds);
@@ -38,13 +40,12 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
   const setPaneColor = useWorkspaceLayoutStore((s) => s.setPaneColor);
   const setActivePaneTab = useWorkspaceLayoutStore((s) => s.setActivePaneTab);
 
-  const isActive = activePaneId === pane.sessionId;
-  const isFlashing = flashingPaneIds.has(pane.sessionId);
+  const isActive = activePaneId === pane.sessionId || activePaneId === activeTabSessionId;
+  const isFlashing = flashingPaneIds.has(pane.sessionId) || flashingPaneIds.has(activeTabSessionId);
   const isZoomed = zoomedPaneId === pane.id;
 
   // Agent status from active tab's metadata
-  const activeTabSessionId = pane.tabs.find((t) => t.id === pane.activeTabId)?.sessionId;
-  const activeTabMeta = usePaneMetadataStore((s) => activeTabSessionId ? s.metadata[activeTabSessionId] : undefined);
+  const activeTabMeta = usePaneMetadataStore((s) => s.metadata[activeTabSessionId]);
   const agentStatus = activeTabMeta?.agentStatus ?? "idle";
   const paneFontSize = usePaneFontStore((s) => s.fontSizes[pane.sessionId]);
 
@@ -61,11 +62,14 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
     : pane.color
       ? pane.color
       : (isActive ? STATUS_BORDERS[statusKey].active : STATUS_BORDERS[statusKey].inactive);
+  const paneBackground = isActive
+    ? "color-mix(in srgb, var(--cmux-surface) 76%, var(--cmux-accent) 24%)"
+    : "var(--cmux-bg, #101010)";
 
   const handleFocus = useCallback(() => {
-    setActivePaneId(pane.sessionId);
-    clearNotification(pane.sessionId);
-  }, [pane.sessionId, setActivePaneId, clearNotification]);
+    setActivePaneId(activeTabSessionId);
+    clearNotification(activeTabSessionId);
+  }, [activeTabSessionId, setActivePaneId, clearNotification]);
 
   const handleBlur = useCallback(() => {
     setActivePaneId(null);
@@ -81,7 +85,12 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
 
   const handleSelectTab = useCallback((tabId: string) => {
     setActivePaneTab(workspaceId, pane.id, tabId);
-  }, [workspaceId, pane.id, setActivePaneTab]);
+    const tab = pane.tabs.find((t) => t.id === tabId);
+    if (tab) {
+      setActivePaneId(tab.sessionId);
+      clearNotification(tab.sessionId);
+    }
+  }, [workspaceId, pane.id, pane.tabs, setActivePaneTab, setActivePaneId, clearNotification]);
 
   const handleRenamePane = useCallback((label: string) => {
     renamePane(workspaceId, pane.id, label);
@@ -123,7 +132,8 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
 
   return (
     <div
-      data-session-id={pane.sessionId}
+      data-session-id={activeTabSessionId}
+      data-pane-id={pane.id}
       tabIndex={-1}
       onFocus={handleFocus}
       onBlur={handleBlur}
@@ -144,8 +154,12 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        background: paneBackground,
         outline: `1px solid ${borderColor}`,
-        transition: "outline 0.2s",
+        boxShadow: isActive && !isZoomed
+          ? "inset 0 0 0 2px color-mix(in srgb, var(--cmux-accent) 38%, transparent), 0 0 0 1px rgba(255,255,255,0.08)"
+          : "none",
+        transition: "outline 0.2s, box-shadow 0.2s, background 0.2s",
       }}
     >
       {/* Flash overlay */}
@@ -166,6 +180,7 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
       <PaneTabBar
         pane={pane}
         workspaceId={workspaceId}
+        isPaneActive={isActive}
         hasNotification={notificationCount > 0}
         onClose={onClose}
         onSplitRight={onSplitRight}
@@ -205,9 +220,11 @@ export default memo(function TerminalPane({ pane, workspaceId, onClose, onSplitR
                     onZoomToggle={handleZoomToggle}
                     onUrlClick={handleUrlClick}
                     cwd={paneCwd}
-                    fontSize={paneFontSize}
-                    workspaceId={workspaceId}
-                  />
+	                    fontSize={paneFontSize}
+	                    workspaceId={workspaceId}
+	                    isVisible={isWorkspaceVisible && isActiveTab}
+	                    isFocused={isActive}
+	                  />
                 )}
               </ErrorBoundary>
             </div>

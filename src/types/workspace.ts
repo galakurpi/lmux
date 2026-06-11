@@ -6,7 +6,16 @@ export type GridTemplateId =
   | "3x2"
   | "2x3"
   | "3x3"
-  | "4x4";
+  | "4x4"
+  | "ceo";
+
+export interface GridTemplatePreviewCell {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label?: string;
+}
 
 export interface GridTemplate {
   id: GridTemplateId;
@@ -15,6 +24,7 @@ export interface GridTemplate {
   cols: number;
   /** Total number of panes */
   paneCount: number;
+  previewCells?: GridTemplatePreviewCell[];
 }
 
 export interface PaneTab {
@@ -47,6 +57,7 @@ export type SplitLayoutNode =
       type: "split";
       direction: "horizontal" | "vertical";
       children: SplitLayoutNode[];
+      sizes?: number[];
     };
 
 export type WorkspaceStatus = "setup" | "running" | "stopped";

@@ -14,11 +14,14 @@ ctl="$script_dir/lmuxctl"
 find_real() {
   local name="$1"
   local self_dir="$script_dir"
+  local skip_path="${LMUX_SKIP_WRAPPER_PATH:-}"
   local IFS=:
   for d in $PATH; do
     [[ "$d" == "$self_dir" ]] && continue
-    if [[ -x "$d/$name" ]]; then
-      printf '%s\n' "$d/$name"
+    local candidate="$d/$name"
+    [[ -n "$skip_path" && "$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")" == "$skip_path" ]] && continue
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
       return 0
     fi
   done
@@ -34,16 +37,53 @@ if [[ -z "${LMUX_SURFACE_ID:-}" ]]; then
   exec "$real" "$@"
 fi
 
+run_with_exit_notification() {
+  local label="$1"
+  shift
+  set +e
+  "$@"
+  local status=$?
+  set -e
+  local current_status=""
+  current_status="$("$ctl" pane.list 2>/dev/null | python3 -c 'import json,sys
+target = "'"${LMUX_SURFACE_ID:-}"'"
+try:
+    items = json.load(sys.stdin).get("result") or []
+except Exception:
+    items = []
+for item in items:
+    if item.get("surface_id") == target or item.get("session_id") == target:
+        print(item.get("status") or "")
+        break
+' 2>/dev/null || true)"
+  # The hooks already notified for any run that reached done/waiting; only a
+  # process that dies while still "working" (a crash mid-run) warrants its own
+  # notification. Interactive quits happen with the user at the keyboard.
+  case "$current_status" in
+    done|waiting)
+      exit "$status"
+      ;;
+  esac
+  if [[ $status -eq 0 ]]; then
+    "$ctl" status done "$label exited" >/dev/null 2>&1 || true
+  else
+    "$ctl" status waiting "$label exited with $status" >/dev/null 2>&1 || true
+    "$ctl" notify --title "$label" --subtitle "Exited with $status" --body "Process ended" >/dev/null 2>&1 || true
+  fi
+  exit "$status"
+}
+
 case "$agent" in
   claude)
     export LMUX_HOOK_BIN="$ctl"
-    hooks_json='{"preferredNotifChannel":"notifications_disabled","hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-start","timeout":10}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude stop","timeout":10}]}],"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-end","timeout":1}]}],"Notification":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude notification","timeout":10}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude prompt-submit","timeout":10}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude pre-tool-use","timeout":5,"async":true}]}],"PermissionRequest":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude permission-request","timeout":125}]}]}}'
+    hooks_json='{"preferredNotifChannel":"notifications_disabled","hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude session-start","timeout":10}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude stop","timeout":10}]}],"Notification":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude notification","timeout":10}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude prompt-submit","timeout":10}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude pre-tool-use","timeout":5,"async":true}]}],"PermissionRequest":[{"matcher":"","hooks":[{"type":"command","command":"\"${LMUX_HOOK_BIN:-lmuxctl}\" hooks claude permission-request","timeout":125}]}]}}'
     "$ctl" status working "Claude Code" >/dev/null 2>&1 || true
-    exec "$real" --settings "$hooks_json" "$@"
+    run_with_exit_notification "Claude Code" "$real" --settings "$hooks_json" "$@"
     ;;
   codex)
     codex_args=(
       --config 'features.hooks=true'
+      --config 'tui.notifications=false'
       --config "hooks.SessionStart=[{matcher=\"startup|resume|clear|compact\",hooks=[{type=\"command\",command=\"$ctl hooks codex session-start\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
       --config "hooks.UserPromptSubmit=[{hooks=[{type=\"command\",command=\"$ctl hooks codex prompt-submit\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
       --config "hooks.PermissionRequest=[{matcher=\"*\",hooks=[{type=\"command\",command=\"$ctl hooks codex permission-request\",timeout=10,statusMessage=\"Updating Lmux\"}]}]"
@@ -55,7 +95,7 @@ case "$agent" in
       codex_args+=(--dangerously-bypass-hook-trust)
     fi
     "$ctl" status working "Codex" >/dev/null 2>&1 || true
-    exec "$real" "${codex_args[@]}" "$@"
+    run_with_exit_notification "Codex" "$real" "${codex_args[@]}" "$@"
     ;;
   gemini)
     gemini_config_dir="$(mktemp -d "${TMPDIR:-/tmp}/lmux-gemini-hooks.XXXXXX")"
@@ -63,8 +103,7 @@ case "$agent" in
     cat > "$gemini_config" <<EOF
 {
   "general": {
-    "enableNotifications": true,
-    "notificationMethod": "osc777"
+    "enableNotifications": false
   },
   "hooksConfig": {
     "enabled": true,
@@ -90,7 +129,7 @@ case "$agent" in
 }
 EOF
     "$ctl" status working "Gemini" >/dev/null 2>&1 || true
-    exec env GEMINI_CLI_SYSTEM_DEFAULTS_PATH="$gemini_config" "$real" "$@"
+    run_with_exit_notification "Gemini" env GEMINI_CLI_SYSTEM_DEFAULTS_PATH="$gemini_config" "$real" "$@"
     ;;
   aider)
     "$ctl" status working "$agent running" >/dev/null 2>&1 || true

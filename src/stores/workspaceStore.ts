@@ -17,6 +17,7 @@ export { useWorkspaceLayoutStore } from "./workspaceLayoutStore";
 export { useUiStore } from "./uiStore";
 export { usePaneMetadataStore } from "./paneMetadataStoreCompat";
 export { usePaneFontStore } from "./paneFontStore";
+export { useTerminalScreenStore } from "./terminalScreenStore";
 
 // Re-export types
 export type { PaneMetadata, PaneMetadataState } from "./paneMetadataStoreCompat";

@@ -1,0 +1,5 @@
+if [ -r "$HOME/.bashrc" ]; then
+  . "$HOME/.bashrc"
+fi
+
+export PATH="/home/gal/Desktop/business/projects/lmux/scripts:$PATH"

@@ -6,7 +6,7 @@ export const BUILT_IN_AGENTS: AgentDefinition[] = [
     name: "Shell",
     description: "Default system shell",
     command: "/bin/bash",
-    args: [],
+    args: ["--rcfile", "/home/gal/Desktop/business/projects/lmux/scripts/lmux-bashrc", "-i"],
     icon: "$",
     color: "#00ff41",
   },
